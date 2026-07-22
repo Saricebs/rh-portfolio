@@ -24,7 +24,7 @@ export async function fetchTrending(): Promise<TrendingToken[]> {
   
   const data = await res.json()
   
-  return data.map((c: any) => ({
+  return data.map((c: { symbol?: string; name?: string; image?: string; current_price?: number; total_volume?: number; market_cap?: number; price_change_percentage_24h?: number; id?: string }) => ({
     symbol: c.symbol?.toUpperCase() || '?',
     name: c.name || '?',
     image: c.image || '',

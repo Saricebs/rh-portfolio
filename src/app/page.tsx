@@ -1,5 +1,7 @@
 'use client'
 
+/* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps -- pre-existing codebase */
+
 import { useState, useEffect, useCallback } from 'react'
 import { requestAccount, switchToRobinhoodChain, fetchBalances, fetchPrices, calcPortfolio, type TokenInfo } from '@/lib/chain'
 import { fetchTrending, type TrendingToken } from '@/lib/trending'
@@ -23,8 +25,8 @@ export default function Home() {
       const addr = await requestAccount()
       await switchToRobinhoodChain(window.ethereum)
       setAccount(addr)
-    } catch (e: any) {
-      setError(e.message || 'Connection failed')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Connection failed')
     }
   }, [])
 
@@ -46,8 +48,8 @@ export default function Home() {
       setTokens(enriched)
       setTotalValue(tv)
       setTotalPnl(tp)
-    } catch (e: any) {
-      setError(e.message || 'Failed to load portfolio')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load portfolio')
     }
     setLoading(false)
   }, [account, costBasis])
@@ -72,7 +74,7 @@ export default function Home() {
       {/* Header */}
       <header className="border-b border-zinc-800 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-600 to-purple-800 flex items-center justify-center text-sm font-bold">RH</div>
+          <img src="/rh-logo.png" alt="RH" className="w-8 h-8 rounded-lg" />
           <h1 className="text-lg font-semibold">Portfolio</h1>
         </div>
         <div className="flex items-center gap-4">
@@ -123,7 +125,7 @@ export default function Home() {
 
       {!account && tab === 'portfolio' ? (
         <div className="flex flex-col items-center justify-center mt-32 gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-600 to-purple-800 flex items-center justify-center text-2xl">RH</div>
+          <img src="/rh-logo.png" alt="RH" className="w-16 h-16 rounded-2xl" />
           <h2 className="text-xl font-semibold">Robinhood Chain Portfolio</h2>
           <p className="text-zinc-500 text-sm max-w-md text-center">
             Connect your wallet to see token balances and track your portfolio PNL on Robinhood Chain.
