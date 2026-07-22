@@ -1,14 +1,22 @@
 import { BrowserProvider, Contract, formatUnits } from 'ethers'
 import type { Eip1193Provider } from 'ethers'
+import { KNOWN_TOKENS } from '@/config'
 
-const ROBINHOOD_CHAIN_ID = 4663
-const RPC_URL = 'https://rpc.mainnet.chain.robinhood.com'
+declare global {
+  interface Window { ethereum?: Eip1193Provider }
+}
+
+const RPC_URLS = [
+  'https://rpc.mainnet.chain.robinhood.com',
+]
+
+export const ROBINHOOD_CHAIN_ID = 4663
 
 export const ROBINHOOD_CHAIN = {
   chainId: `0x${ROBINHOOD_CHAIN_ID.toString(16)}`,
   chainName: 'Robinhood Chain',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: [RPC_URL],
+  rpcUrls: [RPC_URLS[0]],
   blockExplorerUrls: ['https://robinhoodchain.blockscout.com'],
 }
 
@@ -32,51 +40,81 @@ export interface TokenInfo {
   pnlPercent?: number
 }
 
-const KNOWN_TOKENS: Partial<TokenInfo>[] = [
-  { symbol: 'ETH', address: null, decimals: 18, logo: 'https://cryptologos.cc/logos/ethereum-eth-logo.png' },
-  { symbol: 'WETH', address: '0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73', decimals: 18, logo: 'https://cryptologos.cc/logos/ethereum-eth-logo.png' },
-  { symbol: 'USDG', address: '0x96F47aD2A9C0582736016B94b504C924E28856c5', decimals: 18, logo: 'https://cryptologos.cc/logos/paxos-gold.png' },
-]
-
-export async function requestAccount(): Promise<string> {
+async function getWalletProvider(): Promise<BrowserProvider> {
   if (!window.ethereum) throw new Error('Install MetaMask or Robinhood Wallet')
-  const provider = new BrowserProvider(window.ethereum as Eip1193Provider)
+  const provider = new BrowserProvider(window.ethereum)
+  await provider.getBlockNumber()
+  return provider
+}
+
+// ── CoinGecko prices with cache ──
+const priceCache: Record<string, { data: Record<string, number>; at: number }> = {}
+const CACHE_TTL = 60_000
+
+export async function fetchPrices(symbols: string[]): Promise<Record<string, number>> {
+  const ids = symbols.map(s => {
+    const map: Record<string, string> = { ETH: 'ethereum', WETH: 'ethereum', USDG: 'global-dollar', USDC: 'usd-coin' }
+    return map[s] || s.toLowerCase()
+  })
+  const cacheKey = ids.sort().join(',')
+
+  const cached = priceCache[cacheKey]
+  if (cached && Date.now() - cached.at < CACHE_TTL) return cached.data
+
+  try {
+    const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${cacheKey}&vs_currencies=usd`)
+    if (!res.ok) throw new Error(`CoinGecko ${res.status}`)
+    const data = await res.json()
+    const result: Record<string, number> = {}
+    const reverseMap: Record<string, string> = { ethereum: 'ETH', 'global-dollar': 'USDG', 'usd-coin': 'USDC' }
+    for (const [id, val] of Object.entries(data)) {
+      const sym = reverseMap[id] || id.toUpperCase()
+      result[sym] = (val as { usd: number }).usd
+    }
+    priceCache[cacheKey] = { data: result, at: Date.now() }
+    return result
+  } catch {
+    return cached?.data || {}
+  }
+}
+
+// ── Wallet ──
+export async function requestAccount(): Promise<string> {
+  const provider = await getWalletProvider()
   const accounts = await provider.send('eth_requestAccounts', [])
   return accounts[0]
 }
 
-export async function switchToRobinhoodChain(ethereum: any) {
-  try {
-    await ethereum.request({
-      method: 'wallet_switchEthereumChain',
-      params: [{ chainId: ROBINHOOD_CHAIN.chainId }],
-    })
-  } catch (e: any) {
+export function switchToRobinhoodChain(ethereum: { request: (args: { method: string; params: unknown[] }) => Promise<unknown> }) {
+  return ethereum.request({
+    method: 'wallet_switchEthereumChain',
+    params: [{ chainId: ROBINHOOD_CHAIN.chainId }],
+  }).catch((e: { code: number }) => {
     if (e.code === 4902) {
-      await ethereum.request({
+      return ethereum.request({
         method: 'wallet_addEthereumChain',
         params: [ROBINHOOD_CHAIN],
       })
     }
-  }
+    throw e
+  })
 }
 
+// ── Balances ──
 export async function fetchBalances(address: string): Promise<TokenInfo[]> {
-  const provider = new BrowserProvider(window.ethereum as Eip1193Provider)
+  const provider = await getWalletProvider()
   const results: TokenInfo[] = []
 
-  // Native ETH
   const ethBal = await provider.getBalance(address)
   if (ethBal > 0n) {
     results.push({
       symbol: 'ETH', address: null, decimals: 18,
-      logo: KNOWN_TOKENS[0].logo!,
+      logo: KNOWN_TOKENS[0].logo,
       balance: formatUnits(ethBal, 18),
       balanceRaw: ethBal,
     })
   }
 
-  // ERC20s
   for (const tok of KNOWN_TOKENS.slice(1)) {
     if (!tok.address) continue
     const contract = new Contract(tok.address, ERC20_ABI, provider)
@@ -84,10 +122,10 @@ export async function fetchBalances(address: string): Promise<TokenInfo[]> {
       const bal = await contract.balanceOf(address)
       if (bal > 0n) {
         results.push({
-          symbol: tok.symbol!,
+          symbol: tok.symbol,
           address: tok.address,
-          decimals: tok.decimals!,
-          logo: tok.logo!,
+          decimals: tok.decimals,
+          logo: tok.logo,
           balance: formatUnits(bal, tok.decimals),
           balanceRaw: bal,
         })
@@ -98,27 +136,7 @@ export async function fetchBalances(address: string): Promise<TokenInfo[]> {
   return results
 }
 
-export async function fetchPrices(symbols: string[]): Promise<Record<string, number>> {
-  const ids = symbols.map(s => {
-    const map: Record<string, string> = { ETH: 'ethereum', WETH: 'ethereum', USDG: 'paxos-gold' }
-    return map[s] || s.toLowerCase()
-  }).join(',')
-  
-  try {
-    const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`)
-    const data = await res.json()
-    const result: Record<string, number> = {}
-    const reverseMap: Record<string, string> = { ethereum: 'ETH', 'paxos-gold': 'USDG' }
-    for (const [id, val] of Object.entries(data)) {
-      const sym = reverseMap[id] || id.toUpperCase()
-      result[sym] = (val as any).usd
-    }
-    return result
-  } catch {
-    return {}
-  }
-}
-
+// ── Portfolio calc ──
 export function calcPortfolio(balances: TokenInfo[], prices: Record<string, number>, costBasis: Record<string, number>) {
   let totalValue = 0
   let totalCost = 0
@@ -130,14 +148,7 @@ export function calcPortfolio(balances: TokenInfo[], prices: Record<string, numb
     const costTotal = parseFloat(t.balance) * cost
     totalValue += value
     totalCost += costTotal
-    return {
-      ...t,
-      price,
-      value,
-      costBasis: cost,
-      pnl: value - costTotal,
-      pnlPercent: costTotal > 0 ? ((value - costTotal) / costTotal) * 100 : undefined,
-    }
+    return { ...t, price, value, costBasis: cost, pnl: value - costTotal, pnlPercent: costTotal > 0 ? ((value - costTotal) / costTotal) * 100 : undefined }
   })
 
   return { tokens: enriched, totalValue, totalCost, totalPnl: totalValue - totalCost }
