@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { fetchBalances, fetchPrices, calcPortfolio, type TokenInfo } from '@/lib/chain'
-import { fetchPortfolioChart, type ChartData } from '@/lib/chart'
 
 export function usePortfolio(account: string | null) {
   const [tokens, setTokens] = useState<TokenInfo[]>([])
@@ -13,8 +12,6 @@ export function usePortfolio(account: string | null) {
   const [error, setError] = useState<string | null>(null)
   const [costBasis, setCostBasis] = useState<Record<string, string>>({})
   const [editingSymbol, setEditingSymbol] = useState<string | null>(null)
-  const [chartData, setChartData] = useState<ChartData | null>(null)
-  const [chartLoading, setChartLoading] = useState(false)
 
   const refresh = useCallback(async () => {
     if (!account) return
@@ -35,14 +32,6 @@ export function usePortfolio(account: string | null) {
       setTotalValue(tv)
       setTotalCost(tc)
       setTotalPnl(tp)
-
-      if (enriched.length > 0) {
-        setChartLoading(true)
-        fetchPortfolioChart(enriched, 7)
-          .then(setChartData)
-          .catch(e => console.warn('chart fetch failed', e))
-          .finally(() => setChartLoading(false))
-      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load portfolio')
     }
@@ -61,7 +50,6 @@ export function usePortfolio(account: string | null) {
     setTotalValue(0)
     setTotalCost(0)
     setTotalPnl(0)
-    setChartData(null)
   }, [])
 
   return {
@@ -69,7 +57,6 @@ export function usePortfolio(account: string | null) {
     totalValue, totalCost, totalPnl,
     loading, error,
     costBasis, editingSymbol, setEditingSymbol, updateCostBasis,
-    chartData, chartLoading,
     refresh, resetPortfolio,
   }
 }

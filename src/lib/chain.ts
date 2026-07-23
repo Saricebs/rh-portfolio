@@ -1,4 +1,4 @@
-import { BrowserProvider, Contract, formatUnits } from 'ethers'
+import { BrowserProvider, Contract, formatUnits, JsonRpcProvider } from 'ethers'
 import type { Eip1193Provider } from 'ethers'
 import { KNOWN_TOKENS } from '@/config'
 
@@ -8,9 +8,31 @@ declare global {
 
 const RPC_URLS = [
   'https://rpc.mainnet.chain.robinhood.com',
+  'https://robinhood-chain.drpc.org',
+  'https://rpc.rhinofi.xyz/rh',
 ]
 
 export const ROBINHOOD_CHAIN_ID = 4663
+
+// Multi-RPC fallback with health check
+let healthyRpcIndex = 0
+
+export async function getPublicProvider(): Promise<ethers.JsonRpcProvider> {
+  for (let attempt = 0; attempt < RPC_URLS.length; attempt++) {
+    const idx = (healthyRpcIndex + attempt) % RPC_URLS.length
+    const url = RPC_URLS[idx]
+    try {
+      const provider = new JsonRpcProvider(url, ROBINHOOD_CHAIN_ID)
+      await provider.getBlockNumber()
+      healthyRpcIndex = idx
+      return provider
+    } catch {
+      continue
+    }
+  }
+  // Fall back to wallet provider
+  return getWalletProvider()
+}
 
 export const ROBINHOOD_CHAIN = {
   chainId: `0x${ROBINHOOD_CHAIN_ID.toString(16)}`,

@@ -24,7 +24,7 @@ export default function TokenDetailModal({ token, onClose }: Props) {
     ? `${BLOCKSCOUT}/token/${token.address}`
     : `${BLOCKSCOUT}/address/${token.address}`
 
-  const change = token.pnlPercent ?? 0
+  const change = token.priceChange24h ?? 0
   const up = change >= 0
 
   return (

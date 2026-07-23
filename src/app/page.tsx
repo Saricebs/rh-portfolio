@@ -19,7 +19,6 @@ export default function Home() {
     tokens, totalValue, totalCost, totalPnl,
     loading, error,
     costBasis, editingSymbol, setEditingSymbol, updateCostBasis,
-    chartData, chartLoading,
     refresh, resetPortfolio,
   } = usePortfolio(account)
   const { trending, loading: trendingLoading, refresh: refreshTrending } = useTrending()
@@ -153,12 +152,29 @@ export default function Home() {
             </div>
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
               <div className="text-zinc-500 text-xs uppercase tracking-wide mb-1">24H Change</div>
-              {tokens.length > 0 && tokens.some(t => t.priceChange24h !== undefined) ? (
-                <div className="text-xl font-bold">{totalPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}</div>
-              ) : (
-                <div className="text-xl font-bold text-zinc-500">$0.00</div>
-              )}
-              <div className="text-xs text-zinc-500">—</div>
+              {(() => {
+                const weighted = tokens.reduce((acc, t) => {
+                  if (t.priceChange24h !== undefined && t.price !== undefined && t.value !== undefined) {
+                    return acc + (t.priceChange24h * t.value)
+                  }
+                  return acc
+                }, 0)
+                const totalVal = tokens.reduce((acc, t) => acc + (t.value || 0), 0)
+                const pct = totalVal > 0 ? weighted / totalVal : 0
+                return pct !== 0 ? (
+                  <>
+                    <div className={`text-xl font-bold ${pct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {pct >= 0 ? '+' : ''}{pct.toFixed(2)}%
+                    </div>
+                    <div className="text-xs mt-1 text-zinc-500">weighted by value</div>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-xl font-bold text-zinc-500">$0.00</div>
+                    <div className="text-xs mt-1 text-zinc-500">{tokens.some(t => t.priceChange24h !== undefined) ? '0.00% change' : '—'}</div>
+                  </>
+                )
+              })()}
             </div>
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
               <div className="text-zinc-500 text-xs uppercase tracking-wide mb-1">Total Assets</div>
@@ -169,22 +185,18 @@ export default function Home() {
               <div className="text-xl font-bold">{tokens.length}</div>
             </div>
           </div>
-
+          {/* Portfolio Chart */}
           <div className="mb-6">
-            {chartLoading ? (
-              <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 space-y-3">
-                <div className="h-3 w-20 bg-zinc-800 rounded animate-pulse" />
-                <div className="h-44 bg-zinc-800 rounded animate-pulse" />
-              </div>
-            ) : chartData && chartData.values.length > 1 ? (
-              <PortfolioChartComponent timestamps={chartData.timestamps} values={chartData.values} />
+            {tokens.length > 0 ? (
+              <PortfolioChartComponent tokens={tokens} />
             ) : null}
           </div>
 
-          {!chartLoading && tokens.length > 0 && (
+          {/* Asset Allocation */}
+          {tokens.length > 0 && (
             <div className="mb-6"><AllocationPieChartComponent tokens={tokens} /></div>
           )}
-          {!chartLoading && tokens.length > 0 && (
+          {tokens.length > 0 && (
             <div className="mb-6"><WalletAnalyticsComponent tokens={tokens} /></div>
           )}
 

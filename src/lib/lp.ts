@@ -80,9 +80,11 @@ export async function fetchLpPositions(address: string): Promise<LpPosition[]> {
 
       const tok0 = pos.token0
       const tok1 = pos.token1
-      const [sym0, sym1] = await Promise.all([
+      const [sym0, sym1, dec0, dec1] = await Promise.all([
         getTokenSymbol(provider, tok0),
         getTokenSymbol(provider, tok1),
+        getTokenDecimals(provider, tok0),
+        getTokenDecimals(provider, tok1),
       ])
 
       positions.push({
@@ -93,11 +95,11 @@ export async function fetchLpPositions(address: string): Promise<LpPosition[]> {
         token1Symbol: sym1,
         fee: pos.fee,
         feeLabel: feeToPercent(pos.fee),
-        liquidity: pos.liquidity.toString(),
+        liquidity: formatUnits(pos.liquidity, dec0),
         tickLower: pos.tickLower,
         tickUpper: pos.tickUpper,
-        tokensOwed0: pos.tokensOwed0.toString(),
-        tokensOwed1: pos.tokensOwed1.toString(),
+        tokensOwed0: formatUnits(pos.tokensOwed0, dec0),
+        tokensOwed1: formatUnits(pos.tokensOwed1, dec1),
       })
     } catch { continue }
   }
