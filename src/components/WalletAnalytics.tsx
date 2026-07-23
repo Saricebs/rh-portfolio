@@ -56,7 +56,7 @@ export default function WalletAnalytics({ tokens }: Props) {
   return (
     <div className="mb-6">
       <div className="text-zinc-500 text-xs uppercase tracking-wide mb-3">Wallet Analytics</div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Card label="Largest Holding" value={`${stats.largest.symbol}`} 
               sub={`${((stats.largest.value ?? 0) / (stats.total || 1) * 100).toFixed(1)}% of portfolio`} />
         <Card label="Stablecoin %" value={`${stats.stablePct.toFixed(1)}%`}
