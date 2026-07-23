@@ -62,7 +62,18 @@ export default function Home() {
       </header>
 
       {error && (
-        <div className="mx-6 mt-4 p-3 bg-red-900/40 border border-red-800 rounded-lg text-sm text-red-300">{error}</div>
+        <div className="mx-6 mt-4 p-4 bg-red-900/40 border border-red-800 rounded-xl">
+          <div className="flex items-start gap-3">
+            <span className="text-red-400 mt-0.5">⚠</span>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm text-red-300 font-medium">Failed to load portfolio</div>
+              <div className="text-xs text-red-400/80 mt-0.5 truncate">{error}</div>
+            </div>
+            <button onClick={refresh} className="shrink-0 bg-red-800/60 hover:bg-red-700/60 px-3 py-1 rounded text-xs text-red-200 transition-colors">
+              Retry
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Tab bar */}
@@ -176,9 +187,11 @@ export default function Home() {
 
           <div className="space-y-2">
             <div className="text-zinc-500 text-xs uppercase tracking-wide px-1 mb-3">Tokens</div>
-            {tokens.length === 0 ? (
-              <div className="text-zinc-600 text-sm text-center py-8 border border-dashed border-zinc-800 rounded-xl">
-                No tokens found in this wallet on Robinhood Chain
+            {tokens.length === 0 && !loading ? (
+              <div className="flex flex-col items-center justify-center py-12 border border-dashed border-zinc-800 rounded-xl">
+                <div className="text-2xl mb-2">📭</div>
+                <div className="text-zinc-500 text-sm">No tokens found in this wallet on Robinhood Chain</div>
+                <button onClick={refresh} className="mt-3 text-xs text-zinc-600 hover:text-zinc-400 transition-colors">Refresh</button>
               </div>
             ) : (
               tokens.map((t, i) => (
