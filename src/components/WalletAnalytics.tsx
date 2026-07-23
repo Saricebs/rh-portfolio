@@ -41,7 +41,8 @@ export default function WalletAnalytics({ tokens }: Props) {
 
     // Diversification score 0–100 (inverse of concentration, normalized)
     // 1 - HHI, scaled so that HHI=1 → 0, HHI=0 → 100
-    const divScore = Math.round((1 - hhi) / (1 - 1 / withVal.length) * 100)
+    const denom = withVal.length > 1 ? (1 - 1 / withVal.length) : 1
+    const divScore = denom > 0 ? Math.round((1 - hhi) / denom * 100) : 0
 
     return { largest, stablePct, riskScore, divScore, total, stableVal }
   }, [tokens])

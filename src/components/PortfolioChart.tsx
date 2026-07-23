@@ -1,36 +1,65 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { fetchPortfolioChart, type ChartData } from '@/lib/chart'
+import type { TokenInfo } from '@/lib/chain'
 
-interface PortfolioChartProps {
-  timestamps: number[]
-  values: number[]
+interface Props {
+  tokens: TokenInfo[]
 }
 
 type Range = '24H' | '7D' | '30D'
 
-function sliceRange(ts: number[], vals: number[], range: Range) {
-  const len = vals.length
-  if (len === 0) return { timestamps: [], values: [] }
-  let start = 0
-  if (range === '24H') start = Math.max(0, len - 48)    // ~30min intervals
-  else if (range === '7D') start = Math.max(0, len - 336) // ~30min * 7
-  else start = 0
-  return { timestamps: ts.slice(start), values: vals.slice(start) }
-}
+const RANGE_DAYS: Record<Range, number> = { '24H': 1, '7D': 7, '30D': 30 }
 
-export default function PortfolioChart({ timestamps, values }: PortfolioChartProps) {
+export default function PortfolioChart({ tokens }: Props) {
   const [range, setRange] = useState<Range>('7D')
+  const [data, setData] = useState<ChartData | null>(null)
+  const [loading, setLoading] = useState(false)
 
-  const { timestamps: slicedTs, values: slicedVals } = useMemo(
-    () => sliceRange(timestamps, values, range),
-    [timestamps, values, range]
-  )
+  const days = RANGE_DAYS[range]
+
+  useEffect(() => {
+    if (tokens.length === 0) return
+    setLoading(true)
+    fetchPortfolioChart(tokens, days)
+      .then(setData)
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [tokens, days])
+
+  const sliced = useMemo(() => {
+    const vals = data?.values ?? []
+    const ts = data?.timestamps ?? []
+    if (vals.length === 0) return { values: [], timestamps: [] }
+
+    // CoinGecko granularity: 1=hourly (~24 pts), 7=hourly (~168), 30=daily (~30)
+    let n: number
+    if (range === '24H') n = Math.min(vals.length, 24)
+    else if (range === '7D') n = Math.min(vals.length, 168)
+    else n = vals.length
+
+    return {
+      values: vals.slice(-n),
+      timestamps: ts.slice(-n),
+    }
+  }, [data, range])
+
+  const { values: slicedVals, timestamps: slicedTs } = sliced
+
+  if (loading && slicedVals.length === 0) {
+    return (
+      <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-5">
+        <div className="h-3 w-20 bg-zinc-800 rounded animate-pulse mb-4" />
+        <div className="h-44 bg-zinc-800 rounded animate-pulse" />
+      </div>
+    )
+  }
 
   if (slicedVals.length < 2) {
     return (
       <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-5 text-center text-sm text-zinc-500">
-        Chart data loading…
+        {loading ? 'Loading chart…' : 'Not enough data'}
       </div>
     )
   }
@@ -55,21 +84,18 @@ export default function PortfolioChart({ timestamps, values }: PortfolioChartPro
 
   const firstVal = slicedVals[0]
   const lastVal = slicedVals[slicedVals.length - 1]
-  const change = ((lastVal - firstVal) / firstVal) * 100
+  const change = firstVal > 0 ? ((lastVal - firstVal) / firstVal) * 100 : 0
   const up = change >= 0
   const color = up ? '#34d399' : '#f87171'
 
   function formatDate(ts: number) {
-    const d = new Date(ts)
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
   }
 
   function formatTime(ts: number) {
-    const d = new Date(ts)
-    return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+    return new Date(ts).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
   }
 
-  // Y-axis labels
   const yLabels = [0, 0.25, 0.5, 0.75, 1].map(f => {
     const val = minVal + rangeVal * f
     const y = pad.top + chartH - f * chartH
@@ -80,7 +106,6 @@ export default function PortfolioChart({ timestamps, values }: PortfolioChartPro
 
   return (
     <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-5">
-      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
           <div className="text-zinc-500 text-xs uppercase tracking-wide">Portfolio Value</div>
@@ -99,34 +124,18 @@ export default function PortfolioChart({ timestamps, values }: PortfolioChartPro
               className={`px-3 py-1 text-xs rounded-md font-medium transition-colors ${
                 range === r ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-zinc-200'
               }`}
-            >
-              {r}
-            </button>
+            >{r}</button>
           ))}
         </div>
       </div>
 
-      {/* Chart */}
       <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto max-h-48" preserveAspectRatio="xMidYMid slice">
-        {/* Grid lines */}
         {yLabels.map((yl, i) => (
-          <line
-            key={i}
-            x1={pad.left} y1={yl.y}
-            x2={width - pad.right} y2={yl.y}
-            stroke="rgb(39 39 42)"
-            strokeWidth="1"
-          />
+          <line key={i} x1={pad.left} y1={yl.y} x2={width - pad.right} y2={yl.y} stroke="rgb(39 39 42)" strokeWidth="1" />
         ))}
-        {/* Area fill */}
-        <path
-          d={`${pathD} L${pad.left + chartW},${pad.top + chartH} L${pad.left},${pad.top + chartH} Z`}
-          fill={`url(#grad-${up ? 'up' : 'down'})`}
-          opacity="0.15"
-        />
-        {/* Line */}
+        <path d={`${pathD} L${pad.left + chartW},${pad.top + chartH} L${pad.left},${pad.top + chartH} Z`}
+              fill={`url(#grad-${up ? 'up' : 'down'})`} opacity="0.15" />
         <path d={pathD} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        {/* Definitions */}
         <defs>
           <linearGradient id="grad-up" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#34d399" stopOpacity="1" />
@@ -138,7 +147,6 @@ export default function PortfolioChart({ timestamps, values }: PortfolioChartPro
           </linearGradient>
         </defs>
 
-        {/* X-axis labels */}
         {slicedTs.length > 1 && (
           <>
             <text x={pad.left} y={height - 4} fill="rgb(113 113 122)" fontSize="10">
