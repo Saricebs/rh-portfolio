@@ -1,4 +1,3 @@
-import { TokenInfo } from './chain'
 
 const COINGECKO_ID: Record<string, string> = {
   ETH: 'ethereum',
