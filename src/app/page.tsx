@@ -302,9 +302,15 @@ export default function Home() {
                       </div>
                     </div>
                   </div>
-                  <div className="mt-2 flex gap-4 text-xs text-zinc-500">
-                    <span>Vol 24h: <span className="text-zinc-300">${(t.volume24h).toLocaleString()}</span></span>
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
+                    <span>Score: <span className="text-zinc-300 font-medium">{t.score}</span></span>
+                    <span>Vol: <span className="text-zinc-300">${(t.volume24h).toLocaleString()}</span></span>
                     {t.marketCap > 0 && <span>MCap: <span className="text-zinc-300">${(t.marketCap).toLocaleString()}</span></span>}
+                    <div className="flex gap-2 ml-auto">
+                      <span className={t.volumeScore >= 70 ? 'text-emerald-500' : t.volumeScore >= 40 ? 'text-amber-500' : 'text-zinc-600'}>V:{t.volumeScore}</span>
+                      <span className={t.marketCapScore >= 70 ? 'text-emerald-500' : t.marketCapScore >= 40 ? 'text-amber-500' : 'text-zinc-600'}>H:{t.marketCapScore}</span>
+                      <span className={t.changeScore >= 70 ? 'text-emerald-500' : t.changeScore >= 40 ? 'text-amber-500' : 'text-zinc-600'}>C:{t.changeScore}</span>
+                    </div>
                   </div>
                 </a>
               ))}
