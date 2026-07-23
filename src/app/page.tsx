@@ -1,11 +1,11 @@
 'use client'
 
-/* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps -- pre-existing codebase */
+import { useState } from 'react'
+import { type TokenInfo } from '@/lib/chain'
+import { useAccount } from '@/hooks/useAccount'
+import { usePortfolio } from '@/hooks/usePortfolio'
+import { useTrending } from '@/hooks/useTrending'
 
-import { useState, useEffect, useCallback } from 'react'
-import { requestAccount, switchToRobinhoodChain, fetchBalances, fetchPrices, calcPortfolio, type TokenInfo } from '@/lib/chain'
-import { fetchTrending, type TrendingToken } from '@/lib/trending'
-import { fetchPortfolioChart, type ChartData } from '@/lib/chart'
 import PortfolioChartComponent from '@/components/PortfolioChart'
 import AllocationPieChartComponent from '@/components/AllocationPieChart'
 import TokenDetailModalComponent from '@/components/TokenDetailModal'
@@ -16,77 +16,22 @@ import WhaleTrackerComponent from '@/components/WhaleTracker'
 import MarketTrendsComponent from '@/components/MarketTrends'
 
 export default function Home() {
-  const [account, setAccount] = useState<string | null>(null)
-  const [tokens, setTokens] = useState<TokenInfo[]>([])
-  const [totalValue, setTotalValue] = useState(0)
-  const [totalCost, setTotalCost] = useState(0)
-  const [totalPnl, setTotalPnl] = useState(0)
-  const [loading, setLoading] = useState(false)
-  const [costBasis, setCostBasis] = useState<Record<string, string>>({})
-  const [editingSymbol, setEditingSymbol] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [trending, setTrending] = useState<TrendingToken[]>([])
-  const [trendingLoading, setTrendingLoading] = useState(true)
+  const { account, connect, disconnect } = useAccount()
+  const {
+    tokens, totalValue, totalCost, totalPnl,
+    loading, error,
+    costBasis, editingSymbol, setEditingSymbol, updateCostBasis,
+    chartData, chartLoading,
+    refresh, resetPortfolio,
+  } = usePortfolio(account)
+  const { trending, loading: trendingLoading, refresh: refreshTrending } = useTrending()
+
   const [tab, setTab] = useState<'portfolio' | 'trending'>('portfolio')
-  const [chartData, setChartData] = useState<ChartData | null>(null)
-  const [chartLoading, setChartLoading] = useState(false)
   const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null)
 
-  const connect = useCallback(async () => {
-    try {
-      setError(null)
-      const addr = await requestAccount()
-      await switchToRobinhoodChain(window.ethereum)
-      setAccount(addr)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Connection failed')
-    }
-  }, [])
-
-  const refresh = useCallback(async () => {
-    if (!account) return
-    setLoading(true)
-    setError(null)
-    try {
-      const balances = await fetchBalances(account)
-      const symbols = [...new Set(balances.map(b => b.symbol))]
-      const prices = await fetchPrices(symbols)
-
-      const cb: Record<string, number> = {}
-      for (const [sym, val] of Object.entries(costBasis)) {
-        cb[sym] = parseFloat(val) || 0
-      }
-
-      const { tokens: enriched, totalValue: tv, totalCost: tc, totalPnl: tp } = calcPortfolio(balances, prices, cb)
-      setTokens(enriched)
-      setTotalValue(tv)
-      setTotalCost(tc)
-      setTotalPnl(tp)
-
-      // Fetch chart data after tokens are ready
-      if (enriched.length > 0) {
-        setChartLoading(true)
-        fetchPortfolioChart(enriched, 7).then(setChartData).catch(e => console.warn("chart fetch failed", e)).finally(() => setChartLoading(false))
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load portfolio')
-    }
-    setLoading(false)
-  }, [account, costBasis])
-
-  useEffect(() => { if (account) refresh() }, [account])
-
-  useEffect(() => {
-    setTrendingLoading(true)
-    fetchTrending()
-      .then(t => setTrending(t))
-      .catch(e => console.warn("trending fetch failed", e))
-      .finally(() => setTrendingLoading(false))
-  }, [])
-
-  const updateCostBasis = (symbol: string, val: string) => {
-    setCostBasis(prev => ({ ...prev, [symbol]: val }))
-    setEditingSymbol(null)
+  const handleDisconnect = () => {
+    resetPortfolio()
+    disconnect()
   }
 
   return (
@@ -100,12 +45,8 @@ export default function Home() {
         <div className="flex items-center gap-4">
           {account && (
             <div className="flex items-center gap-3">
-              <span className="text-sm text-zinc-400">
-                {account.slice(0, 6)}...{account.slice(-4)}
-              </span>
-              <button onClick={() => { setAccount(null); setTokens([]); setTotalValue(0); setTotalCost(0); setTotalPnl(0); setChartData(null); }} className="text-xs text-zinc-600 hover:text-red-400 transition-colors" title="Disconnect">
-                ✕
-              </button>
+              <span className="text-sm text-zinc-400">{account.slice(0, 6)}...{account.slice(-4)}</span>
+              <button onClick={handleDisconnect} className="text-xs text-zinc-600 hover:text-red-400 transition-colors" title="Disconnect">✕</button>
             </div>
           )}
           {!account ? (
@@ -121,9 +62,7 @@ export default function Home() {
       </header>
 
       {error && (
-        <div className="mx-6 mt-4 p-3 bg-red-900/40 border border-red-800 rounded-lg text-sm text-red-300">
-          {error}
-        </div>
+        <div className="mx-6 mt-4 p-3 bg-red-900/40 border border-red-800 rounded-lg text-sm text-red-300">{error}</div>
       )}
 
       {/* Tab bar */}
@@ -134,17 +73,13 @@ export default function Home() {
             className={`text-sm font-medium pb-2 -mb-2.5 border-b-2 transition-colors ${
               tab === 'portfolio' ? 'border-violet-500 text-white' : 'border-transparent text-zinc-500 hover:text-zinc-300'
             }`}
-          >
-            Portfolio
-          </button>
+          >Portfolio</button>
           <button
             onClick={() => setTab('trending')}
             className={`text-sm font-medium pb-2 -mb-2.5 border-b-2 transition-colors ${
               tab === 'trending' ? 'border-violet-500 text-white' : 'border-transparent text-zinc-500 hover:text-zinc-300'
             }`}
-          >
-            Trending
-          </button>
+          >Trending</button>
         </div>
       </div>
 
@@ -159,7 +94,6 @@ export default function Home() {
       ) : tab === 'portfolio' && account ? (
         loading && tokens.length === 0 ? (
           <div className="max-w-3xl mx-auto p-6">
-            {/* Skeleton stat cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
               {[1, 2, 3, 4].map(i => (
                 <div key={i} className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 space-y-2">
@@ -168,14 +102,12 @@ export default function Home() {
                 </div>
               ))}
             </div>
-            {/* Skeleton chart */}
             <div className="mb-8">
               <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-5 space-y-4">
                 <div className="h-3 w-20 bg-zinc-800 rounded animate-pulse" />
                 <div className="h-48 bg-zinc-800 rounded animate-pulse" />
               </div>
             </div>
-            {/* Skeleton token rows */}
             <div className="space-y-2">
               <div className="h-3 w-16 bg-zinc-800 rounded animate-pulse mb-3" />
               {[1, 2, 3].map(i => (
@@ -200,7 +132,6 @@ export default function Home() {
           </div>
         ) : (
         <div className="max-w-3xl mx-auto p-6">
-          {/* Portfolio Summary — 4 stat cards */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-6">
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 hover:bg-zinc-900/70 transition-colors">
               <div className="text-zinc-500 text-xs uppercase tracking-wide mb-1">Total Value</div>
@@ -213,7 +144,6 @@ export default function Home() {
             </div>
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
               <div className="text-zinc-500 text-xs uppercase tracking-wide mb-1">24H Change</div>
-              {/* TODO: compute from token-level 24h price changes when available */}
               <div className="text-xl font-bold text-zinc-500">$0.00</div>
             </div>
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
@@ -226,7 +156,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Portfolio Chart */}
           <div className="mb-6">
             {chartLoading ? (
               <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 space-y-3">
@@ -238,21 +167,13 @@ export default function Home() {
             ) : null}
           </div>
 
-          {/* Asset Allocation */}
           {!chartLoading && tokens.length > 0 && (
-            <div className="mb-6">
-              <AllocationPieChartComponent tokens={tokens} />
-            </div>
+            <div className="mb-6"><AllocationPieChartComponent tokens={tokens} /></div>
+          )}
+          {!chartLoading && tokens.length > 0 && (
+            <div className="mb-6"><WalletAnalyticsComponent tokens={tokens} /></div>
           )}
 
-          {/* Wallet Analytics */}
-          {!chartLoading && tokens.length > 0 && (
-            <div className="mb-6">
-              <WalletAnalyticsComponent tokens={tokens} />
-            </div>
-          )}
-
-          {/* Token List */}
           <div className="space-y-2">
             <div className="text-zinc-500 text-xs uppercase tracking-wide px-1 mb-3">Tokens</div>
             {tokens.length === 0 ? (
@@ -261,14 +182,12 @@ export default function Home() {
               </div>
             ) : (
               tokens.map((t, i) => (
-                <div key={t.symbol} onClick={() => setSelectedToken(t)} 
+                <div key={t.symbol} onClick={() => setSelectedToken(t)}
                      className="bg-zinc-900/30 border border-zinc-800/60 rounded-xl p-4 hover:border-zinc-700 hover:bg-zinc-900/50 transition-all duration-200 cursor-pointer animate-fade-slide"
                      style={{ animationDelay: `${i * 50}ms` }}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-400">
-                        {t.symbol.slice(0, 2)}
-                      </div>
+                      <div className="w-9 h-9 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-400">{t.symbol.slice(0, 2)}</div>
                       <div>
                         <div className="font-medium">{t.symbol}</div>
                         <div className="text-xs text-zinc-500">{t.balance} {t.symbol}</div>
@@ -284,26 +203,17 @@ export default function Home() {
                       )}
                     </div>
                   </div>
-
-                  {/* Cost Basis Row */}
                   <div className="mt-2 pt-2 border-t border-zinc-800/40 flex items-center gap-2 text-xs text-zinc-500">
                     <span>Cost basis:</span>
                     {editingSymbol === t.symbol ? (
                       <>
-                        <input
-                          type="number"
-                          step="any"
-                          defaultValue={costBasis[t.symbol] || ''}
-                          placeholder="0.00"
+                        <input type="number" step="any" defaultValue={costBasis[t.symbol] || ''} placeholder="0.00"
                           className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 w-24 text-white text-xs"
                           onKeyDown={e => {
-                            if (e.key === 'Enter') {
-                              updateCostBasis(t.symbol, (e.target as HTMLInputElement).value)
-                            }
+                            if (e.key === 'Enter') updateCostBasis(t.symbol, (e.target as HTMLInputElement).value)
                             if (e.key === 'Escape') setEditingSymbol(null)
                           }}
-                          autoFocus
-                        />
+                          autoFocus />
                         <button onClick={() => setEditingSymbol(null)} className="text-zinc-600 hover:text-zinc-400">cancel</button>
                       </>
                     ) : (
@@ -324,18 +234,8 @@ export default function Home() {
       : tab === 'trending' ? (
         <div className="max-w-3xl mx-auto p-6">
           <div className="flex items-center justify-between px-1 mb-3">
-            <div className="text-zinc-500 text-xs uppercase tracking-wide">
-              Trending · CoinGecko
-            </div>
-            <button
-              onClick={() => {
-                setTrendingLoading(true)
-                fetchTrending().then(t => setTrending(t)).catch(e => console.warn("trending fetch failed", e)).finally(() => setTrendingLoading(false))
-              }}
-              className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors"
-            >
-              Refresh
-            </button>
+            <div className="text-zinc-500 text-xs uppercase tracking-wide">Trending · CoinGecko</div>
+            <button onClick={refreshTrending} className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors">Refresh</button>
           </div>
 
           {trendingLoading ? (
@@ -363,27 +263,16 @@ export default function Home() {
               ))}
             </div>
           ) : trending.length === 0 ? (
-            <div className="text-zinc-600 text-sm text-center py-8 border border-dashed border-zinc-800 rounded-xl">
-              No trending data available
-            </div>
+            <div className="text-zinc-600 text-sm text-center py-8 border border-dashed border-zinc-800 rounded-xl">No trending data available</div>
           ) : (
             <div className="space-y-2">
               {trending.map((t, i) => (
-                <a
-                  key={t.coinGeckoId}
-                  href={`https://www.coingecko.com/en/coins/${t.coinGeckoId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block bg-zinc-900/30 border border-zinc-800/60 rounded-xl p-4 hover:border-zinc-700 transition-colors"
-                >
+                <a key={t.coinGeckoId} href={`https://www.coingecko.com/en/coins/${t.coinGeckoId}`} target="_blank" rel="noopener noreferrer"
+                   className="block bg-zinc-900/30 border border-zinc-800/60 rounded-xl p-4 hover:border-zinc-700 transition-colors">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-500 overflow-hidden">
-                        {t.image ? (
-                          <img src={t.image} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          i + 1
-                        )}
+                        {t.image ? <img src={t.image} alt="" className="w-full h-full object-cover" /> : i + 1}
                       </div>
                       <div>
                         <div className="font-medium">{t.symbol}</div>
@@ -406,16 +295,12 @@ export default function Home() {
             </div>
           )}
 
-          <div className="mt-6 mb-8">
-            <WhaleTrackerComponent />
-          </div>
+          <div className="mt-6 mb-8"><WhaleTrackerComponent /></div>
           <MarketTrendsComponent />
-
-          <div className="mt-6 text-center text-xs text-zinc-700">
-            Data from CoinGecko · Robinhood Ecosystem
-          </div>
+          <div className="mt-6 text-center text-xs text-zinc-700">Data from CoinGecko · Robinhood Ecosystem</div>
         </div>
       ) : null}
+
       {selectedToken && (
         <TokenDetailModalComponent token={selectedToken} onClose={() => setSelectedToken(null)} />
       )}
