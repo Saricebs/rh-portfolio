@@ -13,7 +13,7 @@ export default function WhaleTracker() {
     setLoading(true)
     fetchWhaleActivity()
       .then(setWhales)
-      .catch(() => {})
+      .catch(e => console.warn("whale fetch failed", e))
       .finally(() => setLoading(false))
   }, [])
 

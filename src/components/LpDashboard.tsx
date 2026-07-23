@@ -17,7 +17,7 @@ export default function LpDashboard({ address }: Props) {
     setLoading(true)
     fetchLpPositions(address)
       .then(setPositions)
-      .catch(() => {})
+      .catch(e => console.warn("LP fetch failed", e))
       .finally(() => setLoading(false))
   }, [address])
 
