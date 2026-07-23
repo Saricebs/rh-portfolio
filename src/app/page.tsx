@@ -5,11 +5,21 @@
 import { useState, useEffect, useCallback } from 'react'
 import { requestAccount, switchToRobinhoodChain, fetchBalances, fetchPrices, calcPortfolio, type TokenInfo } from '@/lib/chain'
 import { fetchTrending, type TrendingToken } from '@/lib/trending'
+import { fetchPortfolioChart, type ChartData } from '@/lib/chart'
+import PortfolioChartComponent from '@/components/PortfolioChart'
+import AllocationPieChartComponent from '@/components/AllocationPieChart'
+import TokenDetailModalComponent from '@/components/TokenDetailModal'
+import TransactionHistoryComponent from '@/components/TransactionHistory'
+import LpDashboardComponent from '@/components/LpDashboard'
+import WalletAnalyticsComponent from '@/components/WalletAnalytics'
+import WhaleTrackerComponent from '@/components/WhaleTracker'
+import MarketTrendsComponent from '@/components/MarketTrends'
 
 export default function Home() {
   const [account, setAccount] = useState<string | null>(null)
   const [tokens, setTokens] = useState<TokenInfo[]>([])
   const [totalValue, setTotalValue] = useState(0)
+  const [totalCost, setTotalCost] = useState(0)
   const [totalPnl, setTotalPnl] = useState(0)
   const [loading, setLoading] = useState(false)
   const [costBasis, setCostBasis] = useState<Record<string, string>>({})
@@ -18,6 +28,9 @@ export default function Home() {
   const [trending, setTrending] = useState<TrendingToken[]>([])
   const [trendingLoading, setTrendingLoading] = useState(true)
   const [tab, setTab] = useState<'portfolio' | 'trending'>('portfolio')
+  const [chartData, setChartData] = useState<ChartData | null>(null)
+  const [chartLoading, setChartLoading] = useState(false)
+  const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null)
 
   const connect = useCallback(async () => {
     try {
@@ -44,10 +57,17 @@ export default function Home() {
         cb[sym] = parseFloat(val) || 0
       }
 
-      const { tokens: enriched, totalValue: tv, totalPnl: tp } = calcPortfolio(balances, prices, cb)
+      const { tokens: enriched, totalValue: tv, totalCost: tc, totalPnl: tp } = calcPortfolio(balances, prices, cb)
       setTokens(enriched)
       setTotalValue(tv)
+      setTotalCost(tc)
       setTotalPnl(tp)
+
+      // Fetch chart data after tokens are ready
+      if (enriched.length > 0) {
+        setChartLoading(true)
+        fetchPortfolioChart(enriched, 7).then(setChartData).catch(() => {}).finally(() => setChartLoading(false))
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load portfolio')
     }
@@ -79,9 +99,14 @@ export default function Home() {
         </div>
         <div className="flex items-center gap-4">
           {account && (
-            <span className="text-sm text-zinc-400">
-              {account.slice(0, 6)}...{account.slice(-4)}
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-zinc-400">
+                {account.slice(0, 6)}...{account.slice(-4)}
+              </span>
+              <button onClick={() => { setAccount(null); setTokens([]); setTotalValue(0); setTotalCost(0); setTotalPnl(0); setChartData(null); }} className="text-xs text-zinc-600 hover:text-red-400 transition-colors" title="Disconnect">
+                ✕
+              </button>
+            </div>
           )}
           {!account ? (
             <button onClick={connect} className="bg-violet-600 hover:bg-violet-500 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
@@ -132,33 +157,113 @@ export default function Home() {
           </p>
         </div>
       ) : tab === 'portfolio' && account ? (
-        <div className="max-w-3xl mx-auto p-6">
-          {/* Portfolio Summary */}
-          <div className="grid grid-cols-2 gap-4 mb-8">
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-5">
-              <div className="text-zinc-500 text-xs uppercase tracking-wide mb-1">Total Value</div>
-              <div className="text-2xl font-bold">${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+        loading && tokens.length === 0 ? (
+          <div className="max-w-3xl mx-auto p-6">
+            {/* Skeleton stat cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 space-y-2">
+                  <div className="h-3 w-16 bg-zinc-800 rounded animate-pulse" />
+                  <div className="h-6 w-24 bg-zinc-800 rounded animate-pulse" />
+                </div>
+              ))}
             </div>
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-5">
-              <div className="text-zinc-500 text-xs uppercase tracking-wide mb-1">Total PNL</div>
-              <div className={`text-2xl font-bold ${totalPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                {totalPnl >= 0 ? '+' : ''}${totalPnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {/* Skeleton chart */}
+            <div className="mb-8">
+              <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-5 space-y-4">
+                <div className="h-3 w-20 bg-zinc-800 rounded animate-pulse" />
+                <div className="h-48 bg-zinc-800 rounded animate-pulse" />
               </div>
             </div>
+            {/* Skeleton token rows */}
+            <div className="space-y-2">
+              <div className="h-3 w-16 bg-zinc-800 rounded animate-pulse mb-3" />
+              {[1, 2, 3].map(i => (
+                <div key={i} className="bg-zinc-900/30 border border-zinc-800/60 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-zinc-800 animate-pulse" />
+                      <div className="space-y-1.5">
+                        <div className="h-4 w-16 bg-zinc-800 rounded animate-pulse" />
+                        <div className="h-3 w-20 bg-zinc-800 rounded animate-pulse" />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5 text-right">
+                      <div className="h-4 w-16 bg-zinc-800 rounded animate-pulse ml-auto" />
+                      <div className="h-3 w-20 bg-zinc-800 rounded animate-pulse ml-auto" />
+                    </div>
+                  </div>
+                  <div className="h-3 w-40 bg-zinc-800 rounded animate-pulse" />
+                </div>
+              ))}
+            </div>
           </div>
+        ) : (
+        <div className="max-w-3xl mx-auto p-6">
+          {/* Portfolio Summary — 4 stat cards */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-6">
+            <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 hover:bg-zinc-900/70 transition-colors">
+              <div className="text-zinc-500 text-xs uppercase tracking-wide mb-1">Total Value</div>
+              <div className="text-xl font-bold">${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+              {totalPnl !== 0 && (
+                <div className={`text-xs mt-1 ${totalPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {totalPnl >= 0 ? '+' : ''}${totalPnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} PnL
+                </div>
+              )}
+            </div>
+            <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
+              <div className="text-zinc-500 text-xs uppercase tracking-wide mb-1">24H Change</div>
+              {/* TODO: compute from token-level 24h price changes when available */}
+              <div className="text-xl font-bold text-zinc-500">$0.00</div>
+            </div>
+            <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
+              <div className="text-zinc-500 text-xs uppercase tracking-wide mb-1">Total Assets</div>
+              <div className="text-xl font-bold">${totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            </div>
+            <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
+              <div className="text-zinc-500 text-xs uppercase tracking-wide mb-1">Number of Tokens</div>
+              <div className="text-xl font-bold">{tokens.length}</div>
+            </div>
+          </div>
+
+          {/* Portfolio Chart */}
+          <div className="mb-6">
+            {chartLoading ? (
+              <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 space-y-3">
+                <div className="h-3 w-20 bg-zinc-800 rounded animate-pulse" />
+                <div className="h-44 bg-zinc-800 rounded animate-pulse" />
+              </div>
+            ) : chartData && chartData.values.length > 1 ? (
+              <PortfolioChartComponent timestamps={chartData.timestamps} values={chartData.values} />
+            ) : null}
+          </div>
+
+          {/* Asset Allocation */}
+          {!chartLoading && tokens.length > 0 && (
+            <div className="mb-6">
+              <AllocationPieChartComponent tokens={tokens} />
+            </div>
+          )}
+
+          {/* Wallet Analytics */}
+          {!chartLoading && tokens.length > 0 && (
+            <div className="mb-6">
+              <WalletAnalyticsComponent tokens={tokens} />
+            </div>
+          )}
 
           {/* Token List */}
           <div className="space-y-2">
             <div className="text-zinc-500 text-xs uppercase tracking-wide px-1 mb-3">Tokens</div>
-            {loading && tokens.length === 0 ? (
-              <div className="text-zinc-600 text-sm text-center py-8">Loading balances...</div>
-            ) : tokens.length === 0 ? (
+            {tokens.length === 0 ? (
               <div className="text-zinc-600 text-sm text-center py-8 border border-dashed border-zinc-800 rounded-xl">
                 No tokens found in this wallet on Robinhood Chain
               </div>
             ) : (
-              tokens.map(t => (
-                <div key={t.symbol} className="bg-zinc-900/30 border border-zinc-800/60 rounded-xl p-4 hover:border-zinc-700 transition-colors">
+              tokens.map((t, i) => (
+                <div key={t.symbol} onClick={() => setSelectedToken(t)} 
+                     className="bg-zinc-900/30 border border-zinc-800/60 rounded-xl p-4 hover:border-zinc-700 hover:bg-zinc-900/50 transition-all duration-200 cursor-pointer animate-fade-slide"
+                     style={{ animationDelay: `${i * 50}ms` }}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-400">
@@ -212,8 +317,11 @@ export default function Home() {
               ))
             )}
           </div>
+          <TransactionHistoryComponent address={account} tokenSymbols={tokens.map(t => t.symbol)} />
+          <LpDashboardComponent address={account} />
         </div>
-      ) : tab === 'trending' ? (
+        ))
+      : tab === 'trending' ? (
         <div className="max-w-3xl mx-auto p-6">
           <div className="flex items-center justify-between px-1 mb-3">
             <div className="text-zinc-500 text-xs uppercase tracking-wide">
@@ -231,7 +339,29 @@ export default function Home() {
           </div>
 
           {trendingLoading ? (
-            <div className="text-zinc-600 text-sm text-center py-8">Loading trending tokens...</div>
+            <div className="space-y-2">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="bg-zinc-900/30 border border-zinc-800/60 rounded-xl p-4 space-y-3 animate-pulse">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-zinc-800 animate-pulse" />
+                      <div className="space-y-1.5">
+                        <div className="h-4 w-16 bg-zinc-800 rounded animate-pulse" />
+                        <div className="h-3 w-20 bg-zinc-800 rounded animate-pulse" />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5 text-right">
+                      <div className="h-4 w-16 bg-zinc-800 rounded animate-pulse ml-auto" />
+                      <div className="h-3 w-12 bg-zinc-800 rounded animate-pulse ml-auto" />
+                    </div>
+                  </div>
+                  <div className="flex gap-4">
+                    <div className="h-3 w-24 bg-zinc-800 rounded animate-pulse" />
+                    <div className="h-3 w-20 bg-zinc-800 rounded animate-pulse" />
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : trending.length === 0 ? (
             <div className="text-zinc-600 text-sm text-center py-8 border border-dashed border-zinc-800 rounded-xl">
               No trending data available
@@ -276,11 +406,19 @@ export default function Home() {
             </div>
           )}
 
+          <div className="mt-6 mb-8">
+            <WhaleTrackerComponent />
+          </div>
+          <MarketTrendsComponent />
+
           <div className="mt-6 text-center text-xs text-zinc-700">
             Data from CoinGecko · Robinhood Ecosystem
           </div>
         </div>
       ) : null}
+      {selectedToken && (
+        <TokenDetailModalComponent token={selectedToken} onClose={() => setSelectedToken(null)} />
+      )}
     </main>
   )
 }
