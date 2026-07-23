@@ -34,6 +34,8 @@ export interface TokenInfo {
   balance: string
   balanceRaw: bigint
   price?: number
+  priceChange24h?: number
+  marketCap?: number
   value?: number
   costBasis?: number
   pnl?: number
@@ -47,11 +49,19 @@ async function getWalletProvider(): Promise<BrowserProvider> {
   return provider
 }
 
+export interface PriceData {
+  usd: number
+  usd_24h_change?: number
+  usd_market_cap?: number
+}
+
+export type PriceMap = Record<string, PriceData>
+
 // ── CoinGecko prices with cache ──
-const priceCache: Record<string, { data: Record<string, number>; at: number }> = {}
+const priceCache: Record<string, { data: any; at: number }> = {}
 const CACHE_TTL = 60_000
 
-export async function fetchPrices(symbols: string[]): Promise<Record<string, number>> {
+export async function fetchPrices(symbols: string[]): Promise<PriceMap> {
   const ids = symbols.map(s => {
     const map: Record<string, string> = { ETH: 'ethereum', WETH: 'ethereum', USDG: 'global-dollar', USDC: 'usd-coin' }
     return map[s] || s.toLowerCase()
@@ -62,14 +72,17 @@ export async function fetchPrices(symbols: string[]): Promise<Record<string, num
   if (cached && Date.now() - cached.at < CACHE_TTL) return cached.data
 
   try {
-    const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${cacheKey}&vs_currencies=usd`)
+    const res = await fetch(
+      `https://api.coingecko.com/api/v3/simple/price?ids=${cacheKey}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true`
+    )
     if (!res.ok) throw new Error(`CoinGecko ${res.status}`)
     const data = await res.json()
-    const result: Record<string, number> = {}
+    const result: PriceMap = {}
     const reverseMap: Record<string, string> = { ethereum: 'ETH', 'global-dollar': 'USDG', 'usd-coin': 'USDC' }
     for (const [id, val] of Object.entries(data)) {
       const sym = reverseMap[id] || id.toUpperCase()
-      result[sym] = (val as { usd: number }).usd
+      const entry = val as { usd: number; usd_24h_change?: number; usd_market_cap?: number }
+      result[sym] = { usd: entry.usd, usd_24h_change: entry.usd_24h_change, usd_market_cap: entry.usd_market_cap }
     }
     priceCache[cacheKey] = { data: result, at: Date.now() }
     return result
@@ -137,18 +150,28 @@ export async function fetchBalances(address: string): Promise<TokenInfo[]> {
 }
 
 // ── Portfolio calc ──
-export function calcPortfolio(balances: TokenInfo[], prices: Record<string, number>, costBasis: Record<string, number>) {
+export function calcPortfolio(balances: TokenInfo[], prices: PriceMap, costBasis: Record<string, number>) {
   let totalValue = 0
   let totalCost = 0
 
   const enriched = balances.map(t => {
-    const price = prices[t.symbol] || 0
+    const p = prices[t.symbol]
+    const price = p?.usd || 0
     const value = parseFloat(t.balance) * price
     const cost = costBasis[t.symbol] || 0
     const costTotal = parseFloat(t.balance) * cost
     totalValue += value
     totalCost += costTotal
-    return { ...t, price, value, costBasis: cost, pnl: value - costTotal, pnlPercent: costTotal > 0 ? ((value - costTotal) / costTotal) * 100 : undefined }
+    return {
+      ...t,
+      price,
+      priceChange24h: p?.usd_24h_change,
+      marketCap: p?.usd_market_cap,
+      value,
+      costBasis: cost,
+      pnl: value - costTotal,
+      pnlPercent: costTotal > 0 ? ((value - costTotal) / costTotal) * 100 : undefined,
+    }
   })
 
   return { tokens: enriched, totalValue, totalCost, totalPnl: totalValue - totalCost }

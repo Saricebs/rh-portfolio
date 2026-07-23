@@ -155,7 +155,12 @@ export default function Home() {
             </div>
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
               <div className="text-zinc-500 text-xs uppercase tracking-wide mb-1">24H Change</div>
-              <div className="text-xl font-bold text-zinc-500">$0.00</div>
+              {tokens.length > 0 && tokens.some(t => t.priceChange24h !== undefined) ? (
+                <div className="text-xl font-bold">{totalPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}</div>
+              ) : (
+                <div className="text-xl font-bold text-zinc-500">$0.00</div>
+              )}
+              <div className="text-xs text-zinc-500">—</div>
             </div>
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
               <div className="text-zinc-500 text-xs uppercase tracking-wide mb-1">Total Assets</div>
