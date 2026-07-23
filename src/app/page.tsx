@@ -66,7 +66,7 @@ export default function Home() {
       // Fetch chart data after tokens are ready
       if (enriched.length > 0) {
         setChartLoading(true)
-        fetchPortfolioChart(enriched, 7).then(setChartData).catch(() => {}).finally(() => setChartLoading(false))
+        fetchPortfolioChart(enriched, 7).then(setChartData).catch(e => console.warn("chart fetch failed", e)).finally(() => setChartLoading(false))
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load portfolio')
@@ -80,7 +80,7 @@ export default function Home() {
     setTrendingLoading(true)
     fetchTrending()
       .then(t => setTrending(t))
-      .catch(() => {})
+      .catch(e => console.warn("trending fetch failed", e))
       .finally(() => setTrendingLoading(false))
   }, [])
 
@@ -330,7 +330,7 @@ export default function Home() {
             <button
               onClick={() => {
                 setTrendingLoading(true)
-                fetchTrending().then(t => setTrending(t)).catch(() => {}).finally(() => setTrendingLoading(false))
+                fetchTrending().then(t => setTrending(t)).catch(e => console.warn("trending fetch failed", e)).finally(() => setTrendingLoading(false))
               }}
               className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors"
             >

@@ -23,7 +23,7 @@ export default function MarketTrends() {
     setLoading(true)
     fetchTrendingTokens()
       .then(setStats)
-      .catch(() => {})
+      .catch(e => console.warn("market trends fetch failed", e))
       .finally(() => setLoading(false))
   }, [])
 

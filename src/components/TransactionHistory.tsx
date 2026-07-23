@@ -30,7 +30,7 @@ export default function TransactionHistory({ address, tokenSymbols }: Props) {
     setLoading(true)
     fetchTransactions(address)
       .then(setTxs)
-      .catch(() => {})
+      .catch(e => console.warn("tx fetch failed", e))
       .finally(() => setLoading(false))
   }, [address])
 
