@@ -37,7 +37,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-[#0a0a0f] text-white">
       {/* Header */}
-      <header className="border-b border-zinc-800 px-6 py-4 flex items-center justify-between">
+      <header className="border-b border-zinc-800 px-3 sm:px-6 py-4 flex items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           <img src="/rh-logo.png" alt="RH" className="w-8 h-8 rounded-lg" />
           <h1 className="text-lg font-semibold">Portfolio</h1>
@@ -77,7 +77,7 @@ export default function Home() {
       )}
 
       {/* Tab bar */}
-      <div className="max-w-3xl mx-auto px-6 pt-4">
+      <div className="max-w-3xl mx-auto px-3 sm:px-6 pt-4">
         <div className="flex gap-4 border-b border-zinc-800 pb-2">
           <button
             onClick={() => setTab('portfolio')}
@@ -142,8 +142,8 @@ export default function Home() {
             </div>
           </div>
         ) : (
-        <div className="max-w-3xl mx-auto p-6">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-6">
+        <div className="max-w-3xl mx-auto p-3 sm:p-6">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3 mb-6">
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 hover:bg-zinc-900/70 transition-colors">
               <div className="text-zinc-500 text-xs uppercase tracking-wide mb-1">Total Value</div>
               <div className="text-xl font-bold">${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>

@@ -64,7 +64,7 @@ export default function LpDashboard({ address }: Props) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                 <div>
                   <div className="text-zinc-600">Liquidity</div>
                   <div className="text-zinc-300 font-mono">{abbreviate(pos.liquidity)}</div>

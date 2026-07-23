@@ -34,7 +34,7 @@ export default function WhaleTracker() {
       <div className="text-zinc-500 text-xs uppercase tracking-wide mb-3">Whale Tracker</div>
 
       {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[1, 2, 3, 4].map(i => (
             <div key={i} className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 space-y-2 animate-pulse">
               <div className="h-3 w-16 bg-zinc-800 rounded" />
@@ -45,7 +45,7 @@ export default function WhaleTracker() {
       ) : (
         <>
           {/* Stats cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
               <div className="text-zinc-500 text-xs uppercase tracking-wide mb-1">Biggest Buy</div>
               {stats.biggestBuy ? (
