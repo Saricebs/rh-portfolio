@@ -1,5 +1,4 @@
 import type { Metadata } from "next"
-import { ErrorBoundary } from '@/components/ErrorBoundary'
 import "./globals.css"
 
 export const metadata: Metadata = {
@@ -10,11 +9,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="antialiased">
-        <ErrorBoundary>
-          {children}
-        </ErrorBoundary>
-      </body>
+      <body className="antialiased">{children}</body>
     </html>
   )
 }
