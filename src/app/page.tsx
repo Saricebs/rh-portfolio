@@ -13,7 +13,6 @@ import TransactionHistoryComponent from '@/components/TransactionHistory'
 import LpDashboardComponent from '@/components/LpDashboard'
 import WalletAnalyticsComponent from '@/components/WalletAnalytics'
 import WhaleTrackerComponent from '@/components/WhaleTracker'
-import MarketTrendsComponent from '@/components/MarketTrends'
 
 export default function Home() {
   const { account, connect, disconnect } = useAccount()
@@ -314,7 +313,6 @@ export default function Home() {
           )}
 
           <div className="mt-6 mb-8"><WhaleTrackerComponent /></div>
-          <MarketTrendsComponent />
           <div className="mt-6 text-center text-xs text-zinc-700">Data from CoinGecko · Robinhood Ecosystem</div>
         </div>
       ) : null}
