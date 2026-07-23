@@ -46,6 +46,7 @@ export default function WhaleTracker() {
         <>
           {/* Stats cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            {/* Biggest Buy */}
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
               <div className="text-zinc-500 text-xs uppercase tracking-wide mb-1">Biggest Buy</div>
               {stats.biggestBuy ? (
@@ -54,14 +55,13 @@ export default function WhaleTracker() {
                     {stats.biggestBuy.value.toFixed(4)} {stats.biggestBuy.tokenSymbol}
                   </div>
                   <div className="text-xs text-zinc-500 mt-0.5">
-                    {formatAddress(stats.biggestBuy.to)} · {timeAgo(stats.biggestBuy.timestamp)}
+                    {stats.biggestBuy.to} · {timeAgo(stats.biggestBuy.timestamp)}
                   </div>
                 </>
-              ) : (
-                <div className="text-sm text-zinc-500">—</div>
-              )}
+              ) : <div className="text-sm text-zinc-500">—</div>}
             </div>
 
+            {/* Biggest Sell */}
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
               <div className="text-zinc-500 text-xs uppercase tracking-wide mb-1">Biggest Sell</div>
               {stats.biggestSell ? (
@@ -70,32 +70,30 @@ export default function WhaleTracker() {
                     {stats.biggestSell.value.toFixed(4)} {stats.biggestSell.tokenSymbol}
                   </div>
                   <div className="text-xs text-zinc-500 mt-0.5">
-                    {formatAddress(stats.biggestSell.from)} · {timeAgo(stats.biggestSell.timestamp)}
+                    {stats.biggestSell.from} · {timeAgo(stats.biggestSell.timestamp)}
                   </div>
                 </>
-              ) : (
-                <div className="text-sm text-zinc-500">—</div>
-              )}
+              ) : <div className="text-sm text-zinc-500">—</div>}
             </div>
 
+            {/* New Whale */}
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
-              <div className="text-zinc-500 text-xs uppercase tracking-wide mb-1">Whale Wallet</div>
-              {stats.topWhale ? (
+              <div className="text-zinc-500 text-xs uppercase tracking-wide mb-1">New Whale</div>
+              {stats.newWhale ? (
                 <>
-                  <div className="text-lg font-bold text-white text-sm font-mono">
-                    {stats.topWhale[0]}
+                  <div className="text-lg font-bold text-sky-400 truncate">
+                    {stats.newWhale.address}
                   </div>
                   <div className="text-xs text-zinc-500 mt-0.5">
-                    {stats.topWhale[1].buys}B/{stats.topWhale[1].sells}S · ${stats.topWhale[1].value.toFixed(2)}
+                    {stats.newWhale.token} · {stats.newWhale.value.toFixed(4)} · {timeAgo(stats.newWhale.timestamp)}
                   </div>
                 </>
-              ) : (
-                <div className="text-sm text-zinc-500">—</div>
-              )}
+              ) : <div className="text-sm text-zinc-500">—</div>}
             </div>
 
+            {/* Whale TXs */}
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
-              <div className="text-zinc-500 text-xs uppercase tracking-wide mb-1">Whale TXs (24h)</div>
+              <div className="text-zinc-500 text-xs uppercase tracking-wide mb-1">Whale TXs</div>
               <div className="text-lg font-bold text-white">{stats.totalWhales}</div>
             </div>
           </div>
@@ -122,17 +120,16 @@ export default function WhaleTracker() {
                         {w.type === 'buy' ? '🟢' : w.type === 'sell' ? '🔴' : '🔵'}
                       </div>
                       <div>
-                        <div className="text-sm font-medium">
-                          {w.value.toFixed(4)} {w.tokenSymbol}
-                        </div>
+                        <div className="text-sm font-medium">{w.value.toFixed(4)} {w.tokenSymbol}</div>
                         <div className="text-xs text-zinc-500">
                           {w.type === 'buy' ? `→ ${w.to}` : w.type === 'sell' ? `← ${w.from}` : `${w.from} → ${w.to}`}
+                          {w.label && <span className="ml-1 text-amber-500">({w.label})</span>}
                         </div>
                       </div>
                     </div>
                     <div className="text-xs text-zinc-600 text-right">
                       <div>{timeAgo(w.timestamp)}</div>
-                      {w.isWhale && <div className="text-amber-400 mt-0.5">🐋</div>}
+                      <div className="text-amber-400 mt-0.5">🐋</div>
                     </div>
                   </div>
                 </a>
@@ -143,10 +140,4 @@ export default function WhaleTracker() {
       )}
     </div>
   )
-}
-
-function formatAddress(addr: string): string {
-  if (!addr) return '?'
-  if (addr.includes('...')) return addr
-  return `${addr.slice(0, 6)}...${addr.slice(-4)}`
 }
