@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { fetchTrending, type TrendingToken } from '@/lib/trending'
+import { fetchTrending } from '@/lib/trending'
+import type { TrendingToken } from '@/lib/trending'
 
 export function useTrending() {
   const [trending, setTrending] = useState<TrendingToken[]>([])

@@ -2,23 +2,11 @@ import { BrowserProvider, Contract, formatUnits } from 'ethers'
 import type { Eip1193Provider } from 'ethers'
 
 const NFPM_ADDRESS = '0x73991a25c818bf1f1128deaab1492d45638de0d3'
-const FACTORY_ADDRESS = '0x1f7d7550b1b028f7571e69a784071f0205fd2efa'
 
 const NFPM_ABI = [
   'function balanceOf(address owner) view returns (uint256)',
   'function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)',
   'function positions(uint256 tokenId) view returns (uint96 nonce, address operator, address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint128 liquidity, uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128, uint128 tokensOwed0, uint128 tokensOwed1)',
-]
-
-const FACTORY_ABI = [
-  'function getPool(address tokenA, address tokenB, uint24 fee) view returns (address)',
-]
-
-const POOL_ABI = [
-  'function slot0() view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)',
-  'function liquidity() view returns (uint128)',
-  'function token0() view returns (address)',
-  'function token1() view returns (address)',
 ]
 
 const ERC20_SHORT = [
