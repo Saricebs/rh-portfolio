@@ -1,25 +1,13 @@
 import { type TokenInfo } from '@/lib/chain'
-import { COINGECKO_IDS as COINGECKO_ID } from '@/config'
+
+const COINGECKO_IDS: Record<string, string> = {
+  ETH: 'ethereum',
+  WETH: 'ethereum',
+  USDG: 'global-dollar',
+  USDC: 'usd-coin',
+}
 
 interface PricePoint { t: number; p: number }
-
-const cache: Record<string, { data: PricePoint[]; at: number }> = {}
-const TTL = 120_000
-
-async function fetchCoinGeckoChart(id: string, days: number): Promise<PricePoint[]> {
-  const key = `${id}-${days}`
-  const cached = cache[key]
-  if (cached && Date.now() - cached.at < TTL) return cached.data
-
-  const url = `https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=${days}`
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`CoinGecko chart ${res.status}`)
-  const json = await res.json()
-
-  const points: PricePoint[] = (json.prices || []).map(([t, p]: [number, number]) => ({ t, p }))
-  cache[key] = { data: points, at: Date.now() }
-  return points
-}
 
 export interface ChartData {
   timestamps: number[]
@@ -29,23 +17,27 @@ export interface ChartData {
   change30d: number
 }
 
+async function fetchCoinGeckoChart(id: string, days: number): Promise<PricePoint[]> {
+  const res = await fetch(`/api/coingecko/chart?id=${id}&days=${days}`)
+  if (!res.ok) throw new Error(`CoinGecko chart ${res.status}`)
+  const json = await res.json()
+  return (json.prices || []).map(([t, p]: [number, number]) => ({ t, p }))
+}
+
 export async function fetchPortfolioChart(tokens: TokenInfo[], days: number): Promise<ChartData> {
-  // Map each held token to its CoinGecko id
   const symbolToId: Record<string, string> = {}
   for (const t of tokens) {
-    const id = COINGECKO_ID[t.symbol]
+    const id = COINGECKO_IDS[t.symbol]
     if (id) symbolToId[t.symbol] = id
   }
   const uniqueIds = [...new Set(Object.values(symbolToId))]
   if (uniqueIds.length === 0) uniqueIds.push('ethereum')
 
-  // Fetch price series for each unique id
   const seriesMap: Record<string, PricePoint[]> = {}
   for (const id of uniqueIds) {
     try { seriesMap[id] = await fetchCoinGeckoChart(id, days) } catch { /* skip */ }
   }
 
-  // Find the longest series to use as reference timeline
   let refPoints: PricePoint[] = []
   for (const id of uniqueIds) {
     if (seriesMap[id] && seriesMap[id].length > refPoints.length) {
@@ -56,7 +48,6 @@ export async function fetchPortfolioChart(tokens: TokenInfo[], days: number): Pr
     return { timestamps: [], values: [], change24h: 0, change7d: 0, change30d: 0 }
   }
 
-  // Aggregate weighted portfolio value per point
   const timestamps = refPoints.map(p => p.t)
   const values = new Array(refPoints.length).fill(0)
 
@@ -81,3 +72,5 @@ export async function fetchPortfolioChart(tokens: TokenInfo[], days: number): Pr
 
   return { timestamps, values, change24h, change7d, change30d }
 }
+
+export { COINGECKO_IDS }

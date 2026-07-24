@@ -79,10 +79,7 @@ export interface PriceData {
 
 export type PriceMap = Record<string, PriceData>
 
-// ── CoinGecko prices with cache ──
-const priceCache: Record<string, { data: any; at: number }> = {}
-const CACHE_TTL = 60_000
-
+// ── CoinGecko prices via /api proxy ──
 export async function fetchPrices(symbols: string[]): Promise<PriceMap> {
   const ids = symbols.map(s => {
     const map: Record<string, string> = { ETH: 'ethereum', WETH: 'ethereum', USDG: 'global-dollar', USDC: 'usd-coin' }
@@ -90,14 +87,9 @@ export async function fetchPrices(symbols: string[]): Promise<PriceMap> {
   })
   const cacheKey = ids.sort().join(',')
 
-  const cached = priceCache[cacheKey]
-  if (cached && Date.now() - cached.at < CACHE_TTL) return cached.data
-
   try {
-    const res = await fetch(
-      `https://api.coingecko.com/api/v3/simple/price?ids=${cacheKey}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true`
-    )
-    if (!res.ok) throw new Error(`CoinGecko ${res.status}`)
+    const res = await fetch(`/api/coingecko/prices?ids=${cacheKey}`)
+    if (!res.ok) return {}
     const data = await res.json()
     const result: PriceMap = {}
     const reverseMap: Record<string, string> = { ethereum: 'ETH', 'global-dollar': 'USDG', 'usd-coin': 'USDC' }
@@ -106,10 +98,9 @@ export async function fetchPrices(symbols: string[]): Promise<PriceMap> {
       const entry = val as { usd: number; usd_24h_change?: number; usd_market_cap?: number }
       result[sym] = { usd: entry.usd, usd_24h_change: entry.usd_24h_change, usd_market_cap: entry.usd_market_cap }
     }
-    priceCache[cacheKey] = { data: result, at: Date.now() }
     return result
   } catch {
-    return cached?.data || {}
+    return {}
   }
 }
 

@@ -1,4 +1,5 @@
-const API = 'https://robinhoodchain.blockscout.com/api'
+const API = '/api/blockscout'
+const MAX_TXS = 30
 
 export interface Tx {
   hash: string
@@ -18,7 +19,6 @@ export interface Tx {
 type TxMethod = 'Swap' | 'Transfer' | 'LP' | 'Bridge' | 'Send' | 'Receive' | 'Contract'
 type TxDirection = 'in' | 'out' | 'self'
 
-// Method signatures from Blockscout input
 function guessMethod(input: string, value: string): TxMethod {
   if (!input || input === '0x') return value !== '0' ? 'Transfer' : 'Contract'
   const sig = input.slice(0, 10).toLowerCase()
@@ -43,7 +43,6 @@ function guessDirection(from: string, to: string, address: string): TxDirection 
   return 'out'
 }
 
-// ── Blockscout types ──
 interface BsTx {
   hash: string
   timeStamp: string
@@ -70,25 +69,19 @@ interface BsTokenTx {
   gasPrice: string
 }
 
-// ── Fetch normal txs (ETH transfers + contract interactions) ──
 async function fetchRawTxs(address: string): Promise<BsTx[]> {
-  const url = `${API}?module=account&action=txlist&address=${address}&sort=desc&limit=30`
-  const res = await fetch(url, { signal: AbortSignal.timeout(10_000) })
+  const res = await fetch(`${API}?module=account&action=txlist&address=${address}&sort=desc&limit=${MAX_TXS}`)
   if (!res.ok) throw new Error(`Blockscout txlist ${res.status}`)
   const json = await res.json()
   return json.message === 'OK' && Array.isArray(json.result) ? json.result : []
 }
 
-// ── Fetch token transfers (ERC20) ──
 async function fetchTokenTxs(address: string): Promise<BsTokenTx[]> {
-  const url = `${API}?module=account&action=tokentx&address=${address}&sort=desc&limit=30`
-  const res = await fetch(url, { signal: AbortSignal.timeout(10_000) })
+  const res = await fetch(`${API}?module=account&action=tokentx&address=${address}&sort=desc&limit=${MAX_TXS}`)
   if (!res.ok) throw new Error(`Blockscout tokentx ${res.status}`)
   const json = await res.json()
   return json.message === 'OK' && Array.isArray(json.result) ? json.result : []
 }
-
-const MAX_TXS = 30
 
 export async function fetchTransactions(address: string): Promise<Tx[]> {
   const [rawTxs, tokenTxs] = await Promise.all([
@@ -99,7 +92,6 @@ export async function fetchTransactions(address: string): Promise<Tx[]> {
   const seenHashes = new Set<string>()
   const result: Tx[] = []
 
-  // Process token transfers first (richer data) — capped
   for (const tx of tokenTxs.slice(0, MAX_TXS)) {
     seenHashes.add(tx.hash)
     const direction = guessDirection(tx.from, tx.to, address)
@@ -119,7 +111,6 @@ export async function fetchTransactions(address: string): Promise<Tx[]> {
     })
   }
 
-  // Process raw txs (ETH transfers + contract calls) — capped, deduped
   for (const tx of rawTxs.slice(0, MAX_TXS)) {
     if (seenHashes.has(tx.hash)) continue
     seenHashes.add(tx.hash)
@@ -141,7 +132,6 @@ export async function fetchTransactions(address: string): Promise<Tx[]> {
     })
   }
 
-  // Sort by timestamp desc
   result.sort((a, b) => b.timestamp - a.timestamp)
   return result
 }
