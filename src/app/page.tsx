@@ -13,6 +13,7 @@ import TokenDetailModalComponent from '@/components/TokenDetailModal'
 import TransactionHistoryComponent from '@/components/TransactionHistory'
 import LpDashboardComponent from '@/components/LpDashboard'
 import WalletAnalyticsComponent from '@/components/WalletAnalytics'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 export default function Home() {
   const { account, connect, disconnect } = useAccount()
@@ -141,6 +142,7 @@ export default function Home() {
           </div>
         ) : (
         <div className="max-w-3xl mx-auto p-3 sm:p-6">
+          <ErrorBoundary name="Portfolio">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3 mb-6">
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 hover:bg-zinc-900/70 transition-colors">
               <div className="text-zinc-500 text-xs uppercase tracking-wide mb-1">Total Value</div>
@@ -186,19 +188,30 @@ export default function Home() {
               <div className="text-xl font-bold">{tokens.length}</div>
             </div>
           </div>
+          </ErrorBoundary>
           {/* Portfolio Chart */}
           <div className="mb-6">
             {tokens.length > 0 ? (
-              <PortfolioChartComponent tokens={tokens} />
+              <ErrorBoundary name="Chart">
+                <PortfolioChartComponent tokens={tokens} />
+              </ErrorBoundary>
             ) : null}
           </div>
 
           {/* Asset Allocation */}
           {tokens.length > 0 && (
-            <div className="mb-6"><AllocationPieChartComponent tokens={tokens} /></div>
+            <div className="mb-6">
+              <ErrorBoundary name="Allocation">
+                <AllocationPieChartComponent tokens={tokens} />
+              </ErrorBoundary>
+            </div>
           )}
           {tokens.length > 0 && (
-            <div className="mb-6"><WalletAnalyticsComponent tokens={tokens} /></div>
+            <div className="mb-6">
+              <ErrorBoundary name="Analytics">
+                <WalletAnalyticsComponent tokens={tokens} />
+              </ErrorBoundary>
+            </div>
           )}
 
           <div className="space-y-2">
@@ -256,8 +269,12 @@ export default function Home() {
               ))
             )}
           </div>
-          <TransactionHistoryComponent address={account} tokenSymbols={tokens.map(t => t.symbol)} />
-          <LpDashboardComponent address={account} />
+          <ErrorBoundary name="Transactions">
+            <TransactionHistoryComponent address={account} tokenSymbols={tokens.map(t => t.symbol)} />
+          </ErrorBoundary>
+          <ErrorBoundary name="LP">
+            <LpDashboardComponent address={account} />
+          </ErrorBoundary>
         </div>
         ))
       : tab === 'trending' ? (
@@ -266,7 +283,7 @@ export default function Home() {
             <div className="text-zinc-500 text-xs uppercase tracking-wide">Trending · CoinGecko</div>
             <button onClick={refreshTrending} className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors">Refresh</button>
           </div>
-
+          <ErrorBoundary name="Trending">
           {trendingLoading ? (
             <div className="space-y-2">
               {[1, 2, 3].map(i => (
@@ -329,6 +346,7 @@ export default function Home() {
               ))}
             </div>
           )}
+          </ErrorBoundary>
 
           <div className="mt-6 text-center text-xs text-zinc-700">Data from CoinGecko · Robinhood Ecosystem</div>
         </div>
