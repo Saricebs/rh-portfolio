@@ -99,7 +99,7 @@ export default function PortfolioChart({ tokens }: Props) {
   const yLabels = [0, 0.25, 0.5, 0.75, 1].map(f => {
     const val = minVal + rangeVal * f
     const y = pad.top + chartH - f * chartH
-    return { y, label: `$${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 0 })}` }
+    return { y, label: `$${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` }
   })
 
   const ranges: Range[] = ['24H', '7D', '30D']
