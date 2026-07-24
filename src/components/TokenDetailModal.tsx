@@ -22,7 +22,7 @@ export default function TokenDetailModal({ token, onClose }: Props) {
 
   const explorerUrl = token.address
     ? `${BLOCKSCOUT}/token/${token.address}`
-    : `${BLOCKSCOUT}/address/${token.address}`
+    : `${BLOCKSCOUT}/search?q=${token.symbol}`
 
   const change = token.priceChange24h ?? 0
   const up = change >= 0

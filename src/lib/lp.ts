@@ -1,5 +1,6 @@
-import { BrowserProvider, Contract, formatUnits } from 'ethers'
+import { BrowserProvider, Contract, formatUnits, JsonRpcProvider, type AbstractProvider } from 'ethers'
 import type { Eip1193Provider } from 'ethers'
+import { getPublicProvider } from '@/lib/chain'
 
 const NFPM_ADDRESS = '0x73991a25c818bf1f1128deaab1492d45638de0d3'
 
@@ -36,14 +37,14 @@ async function getWalletProvider(): Promise<BrowserProvider> {
   return new BrowserProvider(window.ethereum as Eip1193Provider)
 }
 
-async function getTokenSymbol(provider: BrowserProvider, address: string): Promise<string> {
+async function getTokenSymbol(provider: AbstractProvider, address: string): Promise<string> {
   try {
     const c = new Contract(address, ERC20_SHORT, provider)
     return await c.symbol()
   } catch { return address.slice(0, 6) }
 }
 
-async function getTokenDecimals(provider: BrowserProvider, address: string): Promise<number> {
+async function getTokenDecimals(provider: AbstractProvider, address: string): Promise<number> {
   try {
     const c = new Contract(address, ERC20_SHORT, provider)
     return await c.decimals()
@@ -55,7 +56,7 @@ function feeToPercent(fee: number): string {
 }
 
 export async function fetchLpPositions(address: string): Promise<LpPosition[]> {
-  const provider = await getWalletProvider()
+  const provider = await getPublicProvider() as JsonRpcProvider
   const nfpm = new Contract(NFPM_ADDRESS, NFPM_ABI, provider)
 
   const balance: bigint = await nfpm.balanceOf(address)

@@ -1,4 +1,4 @@
-import { BrowserProvider, Contract, formatUnits, JsonRpcProvider } from 'ethers'
+import { BrowserProvider, Contract, formatUnits, JsonRpcProvider, type AbstractProvider } from 'ethers'
 import type { Eip1193Provider } from 'ethers'
 import { KNOWN_TOKENS } from '@/config'
 
@@ -17,7 +17,7 @@ export const ROBINHOOD_CHAIN_ID = 4663
 // Multi-RPC fallback with health check
 let healthyRpcIndex = 0
 
-export async function getPublicProvider(): Promise<ethers.JsonRpcProvider> {
+export async function getPublicProvider(): Promise<AbstractProvider> {
   for (let attempt = 0; attempt < RPC_URLS.length; attempt++) {
     const idx = (healthyRpcIndex + attempt) % RPC_URLS.length
     const url = RPC_URLS[idx]
@@ -137,7 +137,7 @@ export function switchToRobinhoodChain(ethereum: { request: (args: { method: str
 
 // ── Balances ──
 export async function fetchBalances(address: string): Promise<TokenInfo[]> {
-  const provider = await getWalletProvider()
+  const provider = await getPublicProvider()
   const results: TokenInfo[] = []
 
   const ethBal = await provider.getBalance(address)
