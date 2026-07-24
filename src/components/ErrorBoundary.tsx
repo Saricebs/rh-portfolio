@@ -2,8 +2,14 @@
 
 import { Component, type ReactNode } from 'react'
 
-interface Props { children: ReactNode }
-interface State { hasError: boolean; error?: Error }
+interface Props {
+  children: ReactNode
+  name?: string
+}
+interface State {
+  hasError: boolean
+  error?: Error
+}
 
 export class ErrorBoundary extends Component<Props, State> {
   state: State = { hasError: false }
@@ -15,18 +21,20 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-[#0a0a0f] text-white flex items-center justify-center">
-          <div className="text-center max-w-sm p-6">
-            <div className="text-3xl mb-3">⚠</div>
-            <h2 className="text-lg font-semibold mb-2">Something went wrong</h2>
-            <p className="text-sm text-zinc-500 mb-4">{this.state.error?.message || 'An unexpected error occurred.'}</p>
-            <button
-              onClick={() => this.setState({ hasError: false, error: undefined })}
-              className="bg-violet-600 hover:bg-violet-500 px-5 py-2 rounded-lg text-sm font-medium transition-colors"
-            >
-              Try again
-            </button>
-          </div>
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-5 text-center">
+          <div className="text-lg mb-1">⚠</div>
+          <h3 className="text-sm font-semibold text-zinc-300 mb-1">
+            {this.props.name || 'Widget'} error
+          </h3>
+          <p className="text-xs text-zinc-500 mb-3">
+            {this.state.error?.message || 'Something went wrong'}
+          </p>
+          <button
+            onClick={() => this.setState({ hasError: false, error: undefined })}
+            className="bg-zinc-800 hover:bg-zinc-700 px-4 py-1.5 rounded-lg text-xs text-zinc-300 transition-colors"
+          >
+            Retry
+          </button>
         </div>
       )
     }
