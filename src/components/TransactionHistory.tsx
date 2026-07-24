@@ -23,6 +23,7 @@ interface Props {
 export default function TransactionHistory({ address, tokenSymbols }: Props) {
   const [txs, setTxs] = useState<Tx[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [typeFilter, setTypeFilter] = useState('All')
   const [tokenFilter, setTokenFilter] = useState('All')
 
@@ -30,7 +31,7 @@ export default function TransactionHistory({ address, tokenSymbols }: Props) {
     setLoading(true)
     fetchTransactions(address)
       .then(setTxs)
-      .catch(e => console.warn("tx fetch failed", e))
+      .catch(e => setError(e instanceof Error ? e.message : 'Failed to load transactions'))
       .finally(() => setLoading(false))
   }, [address])
 
@@ -86,7 +87,7 @@ export default function TransactionHistory({ address, tokenSymbols }: Props) {
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-zinc-600 text-sm text-center py-8 border border-dashed border-zinc-800 rounded-xl">
-          No transactions found
+          {error || 'No transactions found'}
         </div>
       ) : (
         <div className="space-y-2">
