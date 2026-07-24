@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
-import { fetchTransactions, filterTxs, type Tx } from '@/lib/transactions'
+import { useMemo, useState } from 'react'
+import { useTxsQuery } from '@/lib/blockscout'
+import { filterTxs } from '@/lib/transactions'
 
 const BLOCKSCOUT = 'https://robinhoodchain.blockscout.com'
 
@@ -21,19 +22,12 @@ interface Props {
 }
 
 export default function TransactionHistory({ address, tokenSymbols }: Props) {
-  const [txs, setTxs] = useState<Tx[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [typeFilter, setTypeFilter] = useState('All')
   const [tokenFilter, setTokenFilter] = useState('All')
 
-  useEffect(() => {
-    setLoading(true)
-    fetchTransactions(address)
-      .then(setTxs)
-      .catch(e => setError(e instanceof Error ? e.message : 'Failed to load transactions'))
-      .finally(() => setLoading(false))
-  }, [address])
+  const { data, isLoading, error } = useTxsQuery(address)
+  const txs = data?.data ?? []
+  const warning = data?.warning ?? null
 
   const filtered = useMemo(
     () => filterTxs(txs, typeFilter, tokenFilter),
@@ -57,6 +51,12 @@ export default function TransactionHistory({ address, tokenSymbols }: Props) {
     <div className="mt-8">
       <div className="text-zinc-500 text-xs uppercase tracking-wide mb-3">Activity</div>
 
+      {warning && (
+        <div className="mb-3 px-3 py-2 bg-amber-900/30 border border-amber-700/50 rounded-lg text-xs text-amber-300">
+          {warning}
+        </div>
+      )}
+
       {/* Filters */}
       <div className="flex flex-wrap gap-2 mb-4">
         <select
@@ -76,7 +76,7 @@ export default function TransactionHistory({ address, tokenSymbols }: Props) {
       </div>
 
       {/* List */}
-      {loading ? (
+      {isLoading ? (
         <div className="space-y-2">
           {[1, 2, 3].map(i => (
             <div key={i} className="bg-zinc-900/30 border border-zinc-800/60 rounded-xl p-4 space-y-2 animate-pulse">
@@ -87,7 +87,7 @@ export default function TransactionHistory({ address, tokenSymbols }: Props) {
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-zinc-600 text-sm text-center py-8 border border-dashed border-zinc-800 rounded-xl">
-          {error || 'No transactions found'}
+          {error ? (error instanceof Error ? error.message : 'Failed to load') : 'No transactions found'}
         </div>
       ) : (
         <div className="space-y-2">
