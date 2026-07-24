@@ -73,7 +73,7 @@ interface BsTokenTx {
 // ── Fetch normal txs (ETH transfers + contract interactions) ──
 async function fetchRawTxs(address: string): Promise<BsTx[]> {
   const url = `${API}?module=account&action=txlist&address=${address}&sort=desc&limit=30`
-  const res = await fetch(url)
+  const res = await fetch(url, { signal: AbortSignal.timeout(10_000) })
   if (!res.ok) throw new Error(`Blockscout txlist ${res.status}`)
   const json = await res.json()
   return json.message === 'OK' && Array.isArray(json.result) ? json.result : []
@@ -82,23 +82,25 @@ async function fetchRawTxs(address: string): Promise<BsTx[]> {
 // ── Fetch token transfers (ERC20) ──
 async function fetchTokenTxs(address: string): Promise<BsTokenTx[]> {
   const url = `${API}?module=account&action=tokentx&address=${address}&sort=desc&limit=30`
-  const res = await fetch(url)
+  const res = await fetch(url, { signal: AbortSignal.timeout(10_000) })
   if (!res.ok) throw new Error(`Blockscout tokentx ${res.status}`)
   const json = await res.json()
   return json.message === 'OK' && Array.isArray(json.result) ? json.result : []
 }
 
+const MAX_TXS = 30
+
 export async function fetchTransactions(address: string): Promise<Tx[]> {
   const [rawTxs, tokenTxs] = await Promise.all([
-    fetchRawTxs(address),
-    fetchTokenTxs(address),
+    fetchRawTxs(address).catch(() => [] as BsTx[]),
+    fetchTokenTxs(address).catch(() => [] as BsTokenTx[]),
   ])
 
   const seenHashes = new Set<string>()
   const result: Tx[] = []
 
-  // Process token transfers first (richer data)
-  for (const tx of tokenTxs) {
+  // Process token transfers first (richer data) — capped
+  for (const tx of tokenTxs.slice(0, MAX_TXS)) {
     seenHashes.add(tx.hash)
     const direction = guessDirection(tx.from, tx.to, address)
     result.push({
@@ -117,8 +119,8 @@ export async function fetchTransactions(address: string): Promise<Tx[]> {
     })
   }
 
-  // Process raw txs (ETH transfers + contract calls) — deduped by hash
-  for (const tx of rawTxs) {
+  // Process raw txs (ETH transfers + contract calls) — capped, deduped
+  for (const tx of rawTxs.slice(0, MAX_TXS)) {
     if (seenHashes.has(tx.hash)) continue
     seenHashes.add(tx.hash)
     const direction = guessDirection(tx.from, tx.to, address)
