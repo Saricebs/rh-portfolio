@@ -1,10 +1,5 @@
-
-const COINGECKO_ID: Record<string, string> = {
-  ETH: 'ethereum',
-  WETH: 'ethereum',
-  USDG: 'global-dollar',
-  USDC: 'usd-coin',
-}
+import { type TokenInfo } from '@/lib/chain'
+import { COINGECKO_IDS as COINGECKO_ID } from '@/config'
 
 interface PricePoint { t: number; p: number }
 
