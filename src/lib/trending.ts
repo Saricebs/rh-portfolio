@@ -24,8 +24,6 @@ interface CoinGeckoToken {
   id?: string
 }
 
-const COINGECKO_URL = 'https://api.coingecko.com/api/v3'
-
 function norm(val: number, max: number): number {
   return max > 0 ? Math.min(100, (val / max) * 100) : 0
 }
@@ -43,8 +41,7 @@ function toToken(c: CoinGeckoToken): TrendingToken {
 }
 
 export async function fetchTrending(): Promise<TrendingToken[]> {
-  const url = `${COINGECKO_URL}/coins/markets?vs_currency=usd&category=robinhood-ecosystem&order=volume_desc&per_page=50&sparkline=false`
-  const res = await fetch(url, { headers: { 'Accept': 'application/json' } })
+  const res = await fetch('/api/coingecko/trending')
   if (!res.ok) throw new Error(`CoinGecko returned ${res.status}`)
 
   const data: CoinGeckoToken[] = await res.json()
@@ -59,7 +56,6 @@ export async function fetchTrending(): Promise<TrendingToken[]> {
       const marketCapScore = norm(i.marketCap, maxMc)
       const changeScore = Math.min(100, Math.max(0, (i.priceChange24h + 100) / 2))
       const score = volumeScore * 0.40 + marketCapScore * 0.35 + changeScore * 0.25
-
       return {
         ...i,
         score: Math.round(score * 10) / 10,
