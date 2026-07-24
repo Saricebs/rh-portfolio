@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import type { TokenInfo } from '@/lib/chain'
+import { formatCurrency, formatSignedCurrency, formatNumber, formatPercent, safeFixed } from '@/lib/format'
 
 const BLOCKSCOUT = 'https://robinhoodchain.blockscout.com'
 
@@ -54,17 +55,17 @@ export default function TokenDetailModal({ token, onClose }: Props) {
           <div>
             <div className="text-lg font-semibold">{token.symbol}</div>
             <div className="text-sm text-zinc-500">
-              {parseFloat(token.balance).toLocaleString(undefined, { maximumFractionDigits: 6 })} {token.symbol}
+              {formatNumber(parseFloat(token.balance), 0, 6)} {token.symbol}
             </div>
           </div>
         </div>
 
         {/* Stat rows */}
         <div className="space-y-3">
-          <Row label="USD Value" value={`$${(token.value ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
-          <Row label="Price" value={token.price ? `$${token.price.toFixed(2)}` : '—'} />
-          <Row label="24H Change" value={`${up ? '+' : ''}${change.toFixed(2)}%`} valueClass={up ? 'text-emerald-400' : 'text-red-400'} />
-          <Row label="PnL" value={`${(token.pnl ?? 0) >= 0 ? '+' : ''}${(token.pnl ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} valueClass={(token.pnl ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'} />
+          <Row label="USD Value" value={formatCurrency(token.value)} />
+          <Row label="Price" value={token.price ? `$${safeFixed(token.price, 2)}` : '—'} />
+          <Row label="24H Change" value={formatPercent(token.priceChange24h)} valueClass={up ? 'text-emerald-400' : 'text-red-400'} />
+          <Row label="PnL" value={formatSignedCurrency(token.pnl)} valueClass={(token.pnl ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'} />
           <Row label="Contract" value={token.address ? `${token.address.slice(0, 6)}...${token.address.slice(-4)}` : 'Native ETH'} />
         </div>
 

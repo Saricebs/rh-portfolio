@@ -5,6 +5,7 @@ import { type TokenInfo } from '@/lib/chain'
 import { useAccount } from '@/hooks/useAccount'
 import { usePortfolio } from '@/hooks/usePortfolio'
 import { useTrending } from '@/hooks/useTrending'
+import { formatCurrency, formatNumber, formatCompactNumber } from '@/lib/format'
 
 import PortfolioChartComponent from '@/components/PortfolioChart'
 import AllocationPieChartComponent from '@/components/AllocationPieChart'
@@ -143,10 +144,10 @@ export default function Home() {
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3 mb-6">
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 hover:bg-zinc-900/70 transition-colors">
               <div className="text-zinc-500 text-xs uppercase tracking-wide mb-1">Total Value</div>
-              <div className="text-xl font-bold">${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+              <div className="text-xl font-bold">{formatCurrency(totalValue)}</div>
               {totalPnl !== 0 && (
                 <div className={`text-xs mt-1 ${totalPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                  {totalPnl >= 0 ? '+' : ''}${totalPnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} PnL
+                  {totalPnl >= 0 ? '+' : ''}{formatCurrency(totalPnl)} PnL
                 </div>
               )}
             </div>
@@ -178,7 +179,7 @@ export default function Home() {
             </div>
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
               <div className="text-zinc-500 text-xs uppercase tracking-wide mb-1">Total Assets</div>
-              <div className="text-xl font-bold">${totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+              <div className="text-xl font-bold">{formatCurrency(totalCost)}</div>
             </div>
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
               <div className="text-zinc-500 text-xs uppercase tracking-wide mb-1">Number of Tokens</div>
@@ -316,8 +317,8 @@ export default function Home() {
                   </div>
                   <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
                     <span>Score: <span className="text-zinc-300 font-medium">{t.score}</span></span>
-                    <span>Vol: <span className="text-zinc-300">${(t.volume24h).toLocaleString()}</span></span>
-                    {t.marketCap > 0 && <span>MCap: <span className="text-zinc-300">${(t.marketCap).toLocaleString()}</span></span>}
+                    <span>Vol: <span className="text-zinc-300">{formatCompactNumber(t.volume24h)}</span></span>
+                    {t.marketCap > 0 && <span>MCap: <span className="text-zinc-300">{formatCompactNumber(t.marketCap)}</span></span>}
                     <div className="flex gap-2 ml-auto">
                       <span className={t.volumeScore >= 70 ? 'text-emerald-500' : t.volumeScore >= 40 ? 'text-amber-500' : 'text-zinc-600'}>V:{t.volumeScore}</span>
                       <span className={t.marketCapScore >= 70 ? 'text-emerald-500' : t.marketCapScore >= 40 ? 'text-amber-500' : 'text-zinc-600'}>H:{t.marketCapScore}</span>

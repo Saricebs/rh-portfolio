@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import { formatCurrency } from '@/lib/format'
 
 const STABLECOINS = new Set(['USDG', 'USDC', 'USDT', 'DAI', 'FDUSD', 'TUSD', 'BUSD'])
 
@@ -61,7 +62,7 @@ export default function WalletAnalytics({ tokens }: Props) {
         <Card label="Largest Holding" value={`${stats.largest.symbol}`} 
               sub={`${((stats.largest.value ?? 0) / (stats.total || 1) * 100).toFixed(1)}% of portfolio`} />
         <Card label="Stablecoin %" value={`${stats.stablePct.toFixed(1)}%`}
-              sub={`$${stats.stableVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
+              sub={`${formatCurrency(stats.stableVal)}`} />
         <Card label="Risk Score" value={`${stats.riskScore}/100`} valueClass={riskColor}
               sub={riskLabel} />
         <Card label="Diversification" value={`${stats.divScore}/100`} valueClass={divColor}
