@@ -17,7 +17,7 @@ export const ROBINHOOD_CHAIN_ID = 4663
 // Multi-RPC fallback with health check
 let healthyRpcIndex = 0
 
-export async function getPublicProvider(): Promise<AbstractProvider> {
+export async function getPublicProvider(): Promise<JsonRpcProvider> {
   for (let attempt = 0; attempt < RPC_URLS.length; attempt++) {
     const idx = (healthyRpcIndex + attempt) % RPC_URLS.length
     const url = RPC_URLS[idx]
@@ -30,8 +30,7 @@ export async function getPublicProvider(): Promise<AbstractProvider> {
       continue
     }
   }
-  // Fall back to wallet provider
-  return getWalletProvider()
+  throw new Error('No RPC endpoint available for Robinhood Chain')
 }
 
 export const ROBINHOOD_CHAIN = {
