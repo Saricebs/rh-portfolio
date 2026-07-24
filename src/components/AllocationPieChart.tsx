@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import { formatCurrency } from '@/lib/format'
 
 interface AllocItem {
   symbol: string
@@ -78,7 +79,7 @@ export default function AllocationPieChart({ tokens }: { tokens: { symbol: strin
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-zinc-500 text-xs w-12 text-right">{pct.toFixed(1)}%</span>
-                  <span className="text-zinc-400 text-xs w-20 text-right">${item.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span className="text-zinc-400 text-xs w-20 text-right">{formatCurrency(item.value)}</span>
                 </div>
               </div>
             )

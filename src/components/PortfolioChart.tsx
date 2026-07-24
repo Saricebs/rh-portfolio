@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { fetchPortfolioChart, type ChartData } from '@/lib/chart'
 import type { TokenInfo } from '@/lib/chain'
+import { formatCurrency } from '@/lib/format'
 
 interface Props {
   tokens: TokenInfo[]
@@ -99,7 +100,7 @@ export default function PortfolioChart({ tokens }: Props) {
   const yLabels = [0, 0.25, 0.5, 0.75, 1].map(f => {
     const val = minVal + rangeVal * f
     const y = pad.top + chartH - f * chartH
-    return { y, label: `$${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` }
+    return { y, label: formatCurrency(val, 0) }
   })
 
   const ranges: Range[] = ['24H', '7D', '30D']
@@ -110,7 +111,7 @@ export default function PortfolioChart({ tokens }: Props) {
         <div>
           <div className="text-zinc-500 text-xs uppercase tracking-wide">Portfolio Value</div>
           <div className="text-lg font-bold mt-0.5">
-            ${lastVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            ${formatCurrency(lastVal)}
           </div>
           <div className={`text-xs ${up ? 'text-emerald-400' : 'text-red-400'}`}>
             {up ? '+' : ''}{change.toFixed(2)}% ({range})
