@@ -1,31 +1,30 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { fetchLpPositions, type LpPosition } from '@/lib/lp'
+import { useLpQuery } from '@/lib/blockscout'
 
 const BLOCKSCOUT = 'https://robinhoodchain.blockscout.com'
+const NFPM_ADDRESS = '0x73991a25c818bf1f1128deaab1492d45638de0d3'
 
 interface Props {
   address: string
 }
 
 export default function LpDashboard({ address }: Props) {
-  const [positions, setPositions] = useState<LpPosition[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    setLoading(true)
-    fetchLpPositions(address)
-      .then(setPositions)
-      .catch(e => console.warn("LP fetch failed", e))
-      .finally(() => setLoading(false))
-  }, [address])
+  const { data, isLoading } = useLpQuery(address)
+  const positions = data?.data ?? []
+  const warning = data?.warning ?? null
 
   return (
     <div className="mt-8">
       <div className="text-zinc-500 text-xs uppercase tracking-wide mb-3">Liquidity Positions</div>
 
-      {loading ? (
+      {warning && (
+        <div className="mb-3 px-3 py-2 bg-amber-900/30 border border-amber-700/50 rounded-lg text-xs text-amber-300">
+          {warning}
+        </div>
+      )}
+
+      {isLoading ? (
         <div className="space-y-2">
           {[1, 2].map(i => (
             <div key={i} className="bg-zinc-900/30 border border-zinc-800/60 rounded-xl p-4 animate-pulse space-y-2">
@@ -89,8 +88,6 @@ export default function LpDashboard({ address }: Props) {
     </div>
   )
 }
-
-const NFPM_ADDRESS = '0x73991a25c818bf1f1128deaab1492d45638de0d3'
 
 function abbreviate(val: string): string {
   const n = parseFloat(val)
