@@ -1,12 +1,17 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo, type ChangeEvent } from 'react'
+import { isAddress } from 'ethers'
 import { type TokenInfo } from '@/lib/chain'
 import { useAccount } from '@/hooks/useAccount'
 import { usePortfolio } from '@/hooks/usePortfolio'
 import { useTrending } from '@/hooks/useTrending'
+import { addRecentSearch } from '@/lib/storage'
 import { formatCurrency, formatCompactNumber, formatPrice, formatUsdValue } from '@/lib/format'
 import { COINGECKO_CATEGORY } from '@/config'
+import { BLOCKSCOUT_BASE } from '@/config'
+import { useToast } from '@/lib/toast'
+import { useClipboard } from '@/lib/clipboard'
 
 import PortfolioChartComponent from '@/components/PortfolioChart'
 import AllocationPieChartComponent from '@/components/AllocationPieChart'
@@ -15,12 +20,14 @@ import TransactionHistoryComponent from '@/components/TransactionHistory'
 import LpDashboardComponent from '@/components/LpDashboard'
 import WalletAnalyticsComponent from '@/components/WalletAnalytics'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import PortfolioSummary from '@/components/PortfolioSummary'
+import RecentSearches from '@/components/RecentSearches'
 
 export default function Home() {
-  const { account, connect, disconnect } = useAccount()
+  const { account, connect, disconnect, setAccount } = useAccount()
   const {
     tokens, totalValue, totalCost, totalPnl,
-    loading, error,
+    loading, error, lastUpdated,
     costBasis, editingSymbol, setEditingSymbol, updateCostBasis,
     refresh, resetPortfolio,
   } = usePortfolio(account)
@@ -28,10 +35,50 @@ export default function Home() {
 
   const [tab, setTab] = useState<'portfolio' | 'trending'>('portfolio')
   const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [refreshing, setRefreshing] = useState(false)
+  const { toast } = useToast()
+  const { copy } = useClipboard()
 
   const handleDisconnect = () => {
     resetPortfolio()
     disconnect()
+  }
+
+  const handleRefresh = async () => {
+    if (loading || refreshing) return
+    setRefreshing(true)
+    refresh()
+    // Let the usePortfolio effect fire and complete
+    await new Promise(r => setTimeout(r, 100))
+    setRefreshing(false)
+  }
+
+  const handleRecentSelect = (addr: string) => {
+    addRecentSearch(addr)
+    if (account !== addr) {
+      resetPortfolio()
+      setAccount(addr)
+    }
+  }
+
+  const handleShare = () => {
+    copy(window.location.href, 'URL copied')
+  }
+
+  // ── Client-side token search ──
+  const searchLower = searchQuery.toLowerCase().trim()
+  const filteredTokens = useMemo(() => {
+    if (!searchLower) return tokens
+    return tokens.filter(t => {
+      const addr = (t.address ?? '').toLowerCase()
+      return t.symbol.toLowerCase().includes(searchLower) ||
+        addr.includes(searchLower)
+    })
+  }, [tokens, searchLower])
+
+  const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value)
   }
 
   return (
@@ -46,7 +93,26 @@ export default function Home() {
         <div className="flex items-center gap-4">
           {account && (
             <div className="flex items-center gap-3">
-              <span className="text-sm text-zinc-400">{account.slice(0, 6)}...{account.slice(-4)}</span>
+              <button
+                onClick={() => copy(account, 'Address copied')}
+                className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-zinc-200 transition-colors"
+                title="Copy address"
+              >
+                <span>{account.slice(0, 6)}...{account.slice(-4)}</span>
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <rect x="9" y="9" width="13" height="13" rx="2" strokeWidth="2" />
+                  <path strokeWidth="2" d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                </svg>
+              </button>
+              <a
+                href={`${BLOCKSCOUT_BASE}/address/${account}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-zinc-600 hover:text-zinc-400 text-sm"
+                title="Open in Explorer"
+              >
+                ↗
+              </a>
               <button onClick={handleDisconnect} className="text-xs text-zinc-600 hover:text-red-400 transition-colors" title="Disconnect">✕</button>
             </div>
           )}
@@ -55,15 +121,36 @@ export default function Home() {
               Connect Wallet
             </button>
           ) : (
-            <button onClick={refresh} disabled={loading} className="bg-zinc-800 hover:bg-zinc-700 px-4 py-2 rounded-lg text-sm transition-colors">
-              {loading ? 'Loading...' : 'Refresh'}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleShare}
+                className="bg-zinc-800 hover:bg-zinc-700 px-3 py-2 rounded-lg text-sm transition-colors flex items-center gap-1.5"
+                title="Share portfolio"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeWidth="2" d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13" />
+                </svg>
+              </button>
+              <button onClick={handleRefresh} disabled={loading} className="bg-zinc-800 hover:bg-zinc-700 px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-2">
+                {loading || refreshing ? (
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                )}
+                {loading || refreshing ? '' : 'Refresh'}
+              </button>
+            </div>
           )}
         </div>
       </header>
 
       {error && (
-        <div className="mx-6 mt-4 p-4 bg-red-900/40 border border-red-800 rounded-xl">
+        <div className="mx-3 sm:mx-6 mt-4 p-4 bg-red-900/40 border border-red-800 rounded-xl">
           <div className="flex items-start gap-3">
             <span className="text-red-400 mt-0.5">⚠</span>
             <div className="flex-1 min-w-0">
@@ -96,13 +183,31 @@ export default function Home() {
       </div>
 
       {!account && tab === 'portfolio' ? (
-        <div className="flex flex-col items-center justify-center mt-32 gap-4">
+        <div className="flex flex-col items-center justify-center mt-16 sm:mt-32 gap-4 px-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/rh-logo.png" alt="RH" className="w-16 h-16 rounded-2xl" />
           <h2 className="text-xl font-semibold">Robinhood Chain Portfolio</h2>
           <p className="text-zinc-500 text-sm max-w-md text-center">
             Connect your wallet to see token balances and track your portfolio PNL on Robinhood Chain.
           </p>
+          <button onClick={connect} className="mt-2 bg-violet-600 hover:bg-violet-500 px-5 py-2.5 rounded-lg text-sm font-medium transition-colors">
+            Connect Wallet
+          </button>
+          <div className="w-full max-w-xs mt-4">
+            <input
+              type="text"
+              placeholder="Or enter wallet address..."
+              className="w-full bg-zinc-800/60 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-violet-500"
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  const val = (e.target as HTMLInputElement).value.trim()
+                  if (isAddress(val)) handleRecentSelect(val)
+                  else toast('Invalid address', 'error')
+                }
+              }}
+            />
+          </div>
+          <RecentSearches onSelect={handleRecentSelect} />
         </div>
       ) : tab === 'portfolio' && account ? (
         loading && tokens.length === 0 ? (
@@ -145,6 +250,11 @@ export default function Home() {
           </div>
         ) : (
         <div className="max-w-3xl mx-auto p-3 sm:p-6">
+          {/* Feature 4: Portfolio Summary Card */}
+          <div className="mb-4">
+            <PortfolioSummary address={account} tokens={tokens} totalValue={totalValue} lastUpdated={lastUpdated} />
+          </div>
+
           <ErrorBoundary name="Portfolio">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3 mb-6">
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 hover:bg-zinc-900/70 transition-colors">
@@ -219,15 +329,35 @@ export default function Home() {
           )}
 
           <div className="space-y-2">
-            <div className="text-zinc-500 text-xs uppercase tracking-wide px-1 mb-3">Tokens</div>
-            {tokens.length === 0 && !loading ? (
+            <div className="flex items-center justify-between px-1 mb-3">
+              <div className="text-zinc-500 text-xs uppercase tracking-wide">Tokens</div>
+              {/* Feature 8: Token Search */}
+              {tokens.length > 1 && (
+                <div className="relative">
+                  <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle cx="11" cy="11" r="6" strokeWidth="2" />
+                    <path strokeWidth="2" d="M16.5 16.5L21 21" />
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Search..."
+                    value={searchQuery}
+                    onChange={handleSearchChange}
+                    className="pl-8 pr-3 py-1.5 bg-zinc-800/60 border border-zinc-700 rounded-lg text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-violet-500 w-40"
+                  />
+                </div>
+              )}
+            </div>
+            {filteredTokens.length === 0 && !loading ? (
               <div className="flex flex-col items-center justify-center py-12 border border-dashed border-zinc-800 rounded-xl">
                 <div className="text-2xl mb-2">📭</div>
-                <div className="text-zinc-500 text-sm">No tokens found in this wallet on Robinhood Chain</div>
+                <div className="text-zinc-500 text-sm">
+                  {searchQuery ? 'No matching tokens' : 'No tokens found in this wallet on Robinhood Chain'}
+                </div>
                 <button onClick={refresh} className="mt-3 text-xs text-zinc-600 hover:text-zinc-400 transition-colors">Refresh</button>
               </div>
             ) : (
-              tokens.map((t, i) => (
+              filteredTokens.map((t, i) => (
                 <div key={t.symbol} onClick={() => setSelectedToken(t)}
                      className="bg-zinc-900/30 border border-zinc-800/60 rounded-xl p-4 hover:border-zinc-700 hover:bg-zinc-900/50 transition-all duration-200 cursor-pointer animate-fade-slide"
                      style={{ animationDelay: `${i * 50}ms` }}>

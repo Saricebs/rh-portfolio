@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, startTransition } from 'react'
 import { fetchBalances, fetchPrices, calcPortfolio, type TokenInfo } from '@/lib/chain'
 import { isAddress } from 'ethers'
+import { setLastUpdated } from '@/lib/storage'
 
 export function usePortfolio(account: string | null) {
   const [tokens, setTokens] = useState<TokenInfo[]>([])
@@ -14,6 +15,7 @@ export function usePortfolio(account: string | null) {
   const [costBasis, setCostBasis] = useState<Record<string, string>>({})
   const [editingSymbol, setEditingSymbol] = useState<string | null>(null)
   const [fetchKey, setFetchKey] = useState(0)
+  const [lastUpdated, setLastUpdatedState] = useState<string | null>(null)
 
   const refresh = useCallback(() => setFetchKey(k => k + 1), [])
   const costBasisRef = useRef(costBasis)
@@ -48,6 +50,9 @@ export function usePortfolio(account: string | null) {
           setTotalCost(result.totalCost)
           setTotalPnl(result.totalPnl)
           setLoading(false)
+          const now = new Date().toISOString()
+          setLastUpdatedState(now)
+          setLastUpdated(now)
         })
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load portfolio')
@@ -69,12 +74,14 @@ export function usePortfolio(account: string | null) {
     setTotalValue(0)
     setTotalCost(0)
     setTotalPnl(0)
+    setLastUpdatedState(null)
   }, [])
 
   return {
     tokens,
     totalValue, totalCost, totalPnl,
     loading, error,
+    lastUpdated,
     costBasis, editingSymbol, setEditingSymbol, updateCostBasis,
     refresh, resetPortfolio,
   }

@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 import type { TokenInfo } from '@/lib/chain'
 import { formatCurrency, formatSignedCurrency, formatPercent, formatUsdValue } from '@/lib/format'
 import { BLOCKSCOUT_BASE } from '@/config'
+import { useClipboard } from '@/lib/clipboard'
 
 interface Props {
   token: TokenInfo
@@ -12,6 +13,7 @@ interface Props {
 
 export default function TokenDetailModal({ token, onClose }: Props) {
   const overlayRef = useRef<HTMLDivElement>(null)
+  const { copy } = useClipboard()
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -65,14 +67,24 @@ export default function TokenDetailModal({ token, onClose }: Props) {
           <Row label="Contract" value={token.address ? `${token.address.slice(0, 6)}...${token.address.slice(-4)}` : 'Native ETH'} />
         </div>
 
-        <a
-          href={explorerUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-5 block w-full text-center bg-zinc-800 hover:bg-zinc-700 rounded-lg py-2.5 text-sm font-medium transition-colors"
-        >
-          View on Explorer ↗
-        </a>
+        <div className="mt-4 flex gap-2">
+          {token.address && (
+            <button
+              onClick={() => copy(token.address as string, 'Address copied')}
+              className="flex-1 text-center bg-zinc-800 hover:bg-zinc-700 rounded-lg py-2.5 text-sm font-medium transition-colors"
+            >
+              Copy Address
+            </button>
+          )}
+          <a
+            href={explorerUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 block text-center bg-zinc-800 hover:bg-zinc-700 rounded-lg py-2.5 text-sm font-medium transition-colors"
+          >
+            Explorer ↗
+          </a>
+        </div>
       </div>
     </div>
   )
