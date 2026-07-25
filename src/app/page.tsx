@@ -8,7 +8,7 @@ import { usePortfolio } from '@/hooks/usePortfolio'
 import { useTrending } from '@/hooks/useTrending'
 import { addRecentSearch } from '@/lib/storage'
 import { formatCurrency, formatCompactNumber, formatPrice, formatUsdValue } from '@/lib/format'
-import { COINGECKO_CATEGORY, BLOCKSCOUT_BASE } from '@/config'
+import { BLOCKSCOUT_BASE } from '@/config'
 import { useToast } from '@/lib/toast'
 import { useClipboard } from '@/lib/clipboard'
 
@@ -408,7 +408,7 @@ export default function Home() {
       ) : tab === 'trending' ? (
         <div className="max-w-3xl mx-auto p-6">
           <div className="flex items-center justify-between px-1 mb-3">
-            <div className="text-zinc-500 text-xs uppercase tracking-wide">Trending · {COINGECKO_CATEGORY}</div>
+            <div className="text-zinc-500 text-xs uppercase tracking-wide">Trending · Robinhood Chain</div>
             <button onClick={refreshTrending} className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors">Refresh</button>
           </div>
           <ErrorBoundary name="Trending">
@@ -447,7 +447,7 @@ export default function Home() {
           ) : (
             <div className="space-y-2">
               {trending.map((t, i) => (
-                <a key={t.coinGeckoId} href={`https://www.coingecko.com/en/coins/${t.coinGeckoId}`} target="_blank" rel="noopener noreferrer"
+                <a key={t.tokenAddress} href={t.url} target="_blank" rel="noopener noreferrer"
                    className="block bg-zinc-900/30 border border-zinc-800/60 rounded-xl p-4 hover:border-zinc-700 transition-colors">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -472,12 +472,8 @@ export default function Home() {
                   <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
                     <span>Score: <span className="text-zinc-300 font-medium">{t.score}</span></span>
                     <span>Vol: <span className="text-zinc-300">{formatCompactNumber(t.volume24h)}</span></span>
+                    {t.liquidity > 0 && <span>Liq: <span className="text-zinc-300">{formatCompactNumber(t.liquidity)}</span></span>}
                     {t.marketCap > 0 && <span>MCap: <span className="text-zinc-300">{formatCompactNumber(t.marketCap)}</span></span>}
-                    <div className="flex gap-2 ml-auto">
-                      <span className={t.volumeScore >= 70 ? 'text-emerald-500' : t.volumeScore >= 40 ? 'text-amber-500' : 'text-zinc-600'}>V:{t.volumeScore}</span>
-                      <span className={t.marketCapScore >= 70 ? 'text-emerald-500' : t.marketCapScore >= 40 ? 'text-amber-500' : 'text-zinc-600'}>H:{t.marketCapScore}</span>
-                      <span className={t.changeScore >= 70 ? 'text-emerald-500' : t.changeScore >= 40 ? 'text-amber-500' : 'text-zinc-600'}>C:{t.changeScore}</span>
-                    </div>
                   </div>
                 </a>
               ))}
@@ -485,7 +481,7 @@ export default function Home() {
           )}
           </ErrorBoundary>
 
-          <div className="mt-6 text-center text-xs text-zinc-700">Data from CoinGecko · Robinhood Ecosystem</div>
+          <div className="mt-6 text-center text-xs text-zinc-700">Data from DEX Screener · Robinhood Chain</div>
         </div>
       ) : null}
 
