@@ -39,6 +39,7 @@ export default function Home() {
       {/* Header */}
       <header className="border-b border-zinc-800 px-3 sm:px-6 py-4 flex items-center justify-between gap-2">
         <div className="flex items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/rh-logo.png" alt="RH" className="w-8 h-8 rounded-lg" />
           <h1 className="text-lg font-semibold">Portfolio</h1>
         </div>
@@ -96,6 +97,7 @@ export default function Home() {
 
       {!account && tab === 'portfolio' ? (
         <div className="flex flex-col items-center justify-center mt-32 gap-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/rh-logo.png" alt="RH" className="w-16 h-16 rounded-2xl" />
           <h2 className="text-xl font-semibold">Robinhood Chain Portfolio</h2>
           <p className="text-zinc-500 text-sm max-w-md text-center">
@@ -326,7 +328,10 @@ export default function Home() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-500 overflow-hidden">
-                        {t.image ? <img src={t.image} alt="" className="w-full h-full object-cover" /> : i + 1}
+                        {t.image
+                          ? /* eslint-disable-next-line @next/next/no-img-element -- dynamic remote image */
+                            <img src={t.image} alt="" className="w-full h-full object-cover" />
+                          : i + 1}
                       </div>
                       <div>
                         <div className="font-medium">{t.symbol}</div>

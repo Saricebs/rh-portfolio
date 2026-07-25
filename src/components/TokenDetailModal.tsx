@@ -43,6 +43,7 @@ export default function TokenDetailModal({ token, onClose }: Props) {
         <div className="flex items-center gap-3 mb-6">
           <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center text-base font-bold text-zinc-400 overflow-hidden">
             {token.logo ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img src={token.logo} alt="" className="w-full h-full object-cover" />
             ) : (
               token.symbol.slice(0, 2)
