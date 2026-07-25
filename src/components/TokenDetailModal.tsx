@@ -2,9 +2,8 @@
 
 import { useEffect, useRef } from 'react'
 import type { TokenInfo } from '@/lib/chain'
-import { formatCurrency, formatSignedCurrency, formatNumber, formatPercent, safeFixed } from '@/lib/format'
-
-const BLOCKSCOUT = 'https://robinhoodchain.blockscout.com'
+import { formatCurrency, formatSignedCurrency, formatPercent, formatUsdValue } from '@/lib/format'
+import { BLOCKSCOUT_BASE } from '@/config'
 
 interface Props {
   token: TokenInfo
@@ -14,7 +13,6 @@ interface Props {
 export default function TokenDetailModal({ token, onClose }: Props) {
   const overlayRef = useRef<HTMLDivElement>(null)
 
-  // Close on Escape or overlay click
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', handler)
@@ -22,8 +20,8 @@ export default function TokenDetailModal({ token, onClose }: Props) {
   }, [onClose])
 
   const explorerUrl = token.address
-    ? `${BLOCKSCOUT}/token/${token.address}`
-    : `${BLOCKSCOUT}/search?q=${token.symbol}`
+    ? `${BLOCKSCOUT_BASE}/token/${token.address}`
+    : `${BLOCKSCOUT_BASE}/search?q=${token.symbol}`
 
   const change = token.priceChange24h ?? 0
   const up = change >= 0
@@ -35,7 +33,6 @@ export default function TokenDetailModal({ token, onClose }: Props) {
       onClick={(e) => { if (e.target === overlayRef.current) onClose() }}
     >
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm p-6 shadow-2xl relative animate-fade-slide">
-        {/* Close */}
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-zinc-500 hover:text-zinc-300 text-lg leading-none"
@@ -43,7 +40,6 @@ export default function TokenDetailModal({ token, onClose }: Props) {
           ✕
         </button>
 
-        {/* Header — logo + symbol */}
         <div className="flex items-center gap-3 mb-6">
           <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center text-base font-bold text-zinc-400 overflow-hidden">
             {token.logo ? (
@@ -55,21 +51,19 @@ export default function TokenDetailModal({ token, onClose }: Props) {
           <div>
             <div className="text-lg font-semibold">{token.symbol}</div>
             <div className="text-sm text-zinc-500">
-              {formatNumber(parseFloat(token.balance), 0, 6)} {token.symbol}
+              {formatCurrency(parseFloat(token.balance))} {token.symbol}
             </div>
           </div>
         </div>
 
-        {/* Stat rows */}
         <div className="space-y-3">
           <Row label="USD Value" value={formatCurrency(token.value)} />
-          <Row label="Price" value={token.price ? `$${safeFixed(token.price, 2)}` : '—'} />
+          <Row label="Price" value={token.price ? `$${formatUsdValue(token.price)}` : '—'} />
           <Row label="24H Change" value={formatPercent(token.priceChange24h)} valueClass={up ? 'text-emerald-400' : 'text-red-400'} />
           <Row label="PnL" value={formatSignedCurrency(token.pnl)} valueClass={(token.pnl ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'} />
           <Row label="Contract" value={token.address ? `${token.address.slice(0, 6)}...${token.address.slice(-4)}` : 'Native ETH'} />
         </div>
 
-        {/* Explorer link */}
         <a
           href={explorerUrl}
           target="_blank"

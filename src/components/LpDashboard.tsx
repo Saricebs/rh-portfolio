@@ -1,9 +1,7 @@
 'use client'
 
 import { useLpQuery } from '@/lib/blockscout'
-
-const BLOCKSCOUT = 'https://robinhoodchain.blockscout.com'
-const NFPM_ADDRESS = '0x73991a25c818bf1f1128deaab1492d45638de0d3'
+import { BLOCKSCOUT_BASE, NFPM_ADDRESS } from '@/config'
 
 interface Props {
   address: string
@@ -42,7 +40,7 @@ export default function LpDashboard({ address }: Props) {
           {positions.map(pos => (
             <a
               key={pos.tokenId}
-              href={`${BLOCKSCOUT}/token/${NFPM_ADDRESS}/instance/${pos.tokenId}`}
+              href={`${BLOCKSCOUT_BASE}/token/${NFPM_ADDRESS}/instance/${pos.tokenId}`}
               target="_blank"
               rel="noopener noreferrer"
               className="block bg-zinc-900/30 border border-zinc-800/60 rounded-xl p-4 hover:border-zinc-700 transition-colors"

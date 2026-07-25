@@ -5,7 +5,8 @@ import { type TokenInfo } from '@/lib/chain'
 import { useAccount } from '@/hooks/useAccount'
 import { usePortfolio } from '@/hooks/usePortfolio'
 import { useTrending } from '@/hooks/useTrending'
-import { formatCurrency, formatNumber, formatCompactNumber } from '@/lib/format'
+import { formatCurrency, formatCompactNumber, formatPrice, formatUsdValue } from '@/lib/format'
+import { COINGECKO_CATEGORY } from '@/config'
 
 import PortfolioChartComponent from '@/components/PortfolioChart'
 import AllocationPieChartComponent from '@/components/AllocationPieChart'
@@ -23,7 +24,7 @@ export default function Home() {
     costBasis, editingSymbol, setEditingSymbol, updateCostBasis,
     refresh, resetPortfolio,
   } = usePortfolio(account)
-  const { trending, loading: trendingLoading, refresh: refreshTrending } = useTrending()
+  const { trending, loading: trendingLoading, error: trendingError, refresh: refreshTrending } = useTrending()
 
   const [tab, setTab] = useState<'portfolio' | 'trending'>('portfolio')
   const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null)
@@ -189,6 +190,7 @@ export default function Home() {
             </div>
           </div>
           </ErrorBoundary>
+
           {/* Portfolio Chart */}
           <div className="mb-6">
             {tokens.length > 0 ? (
@@ -236,7 +238,7 @@ export default function Home() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-medium">${t.value?.toFixed(2) || '0.00'}</div>
+                      <div className="font-medium">${formatUsdValue(t.value)}</div>
                       {t.pnl !== undefined && (
                         <div className={`text-xs ${t.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                           {t.pnl >= 0 ? '+' : ''}${t.pnl.toFixed(2)}
@@ -263,7 +265,7 @@ export default function Home() {
                         ${costBasis[t.symbol] ? parseFloat(costBasis[t.symbol]).toFixed(2) : '—'} / {t.symbol}
                       </button>
                     )}
-                    {t.price ? <span className="ml-auto">${t.price.toFixed(2)}</span> : null}
+                    {t.price ? <span className="ml-auto">${formatUsdValue(t.price)}</span> : null}
                   </div>
                 </div>
               ))
@@ -276,11 +278,11 @@ export default function Home() {
             <LpDashboardComponent address={account} />
           </ErrorBoundary>
         </div>
-        ))
-      : tab === 'trending' ? (
+        )
+      ) : tab === 'trending' ? (
         <div className="max-w-3xl mx-auto p-6">
           <div className="flex items-center justify-between px-1 mb-3">
-            <div className="text-zinc-500 text-xs uppercase tracking-wide">Trending · CoinGecko</div>
+            <div className="text-zinc-500 text-xs uppercase tracking-wide">Trending · {COINGECKO_CATEGORY}</div>
             <button onClick={refreshTrending} className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors">Refresh</button>
           </div>
           <ErrorBoundary name="Trending">
@@ -309,7 +311,13 @@ export default function Home() {
               ))}
             </div>
           ) : trending.length === 0 ? (
-            <div className="text-zinc-600 text-sm text-center py-8 border border-dashed border-zinc-800 rounded-xl">No trending data available</div>
+            <div className="flex flex-col items-center justify-center py-12 border border-dashed border-zinc-800 rounded-xl">
+              <div className="text-2xl mb-2">{trendingError ? '⚠️' : '📭'}</div>
+              <div className="text-zinc-500 text-sm">{trendingError || 'No trending data available'}</div>
+              {trendingError && (
+                <button onClick={refreshTrending} className="mt-3 text-xs text-zinc-600 hover:text-zinc-400 transition-colors">Retry</button>
+              )}
+            </div>
           ) : (
             <div className="space-y-2">
               {trending.map((t, i) => (
@@ -326,7 +334,7 @@ export default function Home() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-medium">${t.priceUsd < 0.001 ? t.priceUsd.toExponential(4) : t.priceUsd < 1 ? t.priceUsd.toFixed(6) : t.priceUsd.toFixed(2)}</div>
+                      <div className="font-medium">{formatPrice(t.priceUsd)}</div>
                       <div className={`text-xs ${t.priceChange24h >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                         {t.priceChange24h >= 0 ? '+' : ''}{t.priceChange24h.toFixed(1)}%
                       </div>

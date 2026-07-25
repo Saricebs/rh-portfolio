@@ -13,41 +13,32 @@ function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n))
 }
 
-/**
- * Format USD currency value.
- * Invalid/NaN/Infinity → `—`
- */
+/** Format USD currency value. Invalid/NaN/Infinity → `—` */
 export function formatCurrency(v: unknown, digits = 2): string {
   if (!isFiniteNum(v)) return '—'
   const d = clamp(digits, 0, 20)
   return `$${v.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d })}`
 }
 
-/**
- * Format plain number with configurable digits.
- * Invalid/NaN/Infinity → `—`
- */
+/** Format plain number with configurable digits. Invalid/NaN/Infinity → `—` */
 export function formatNumber(v: unknown, minDigits = 2, maxDigits = 2): string {
   if (!isFiniteNum(v)) return '—'
   const minD = clamp(minDigits, 0, 20)
   const maxD = clamp(maxDigits, 0, 20)
-  return v.toLocaleString(undefined, { minimumFractionDigits: Math.min(minD, maxD), maximumFractionDigits: maxD })
+  return v.toLocaleString(undefined, {
+    minimumFractionDigits: Math.min(minD, maxD),
+    maximumFractionDigits: maxD,
+  })
 }
 
-/**
- * Format percentage (caller passes raw pct like 4.25, not 0.0425).
- * Invalid/NaN/Infinity → `—`
- */
+/** Format percentage (caller passes raw pct like 4.25, not 0.0425). Invalid/NaN/Infinity → `—` */
 export function formatPercent(v: unknown, digits = 2): string {
   if (!isFiniteNum(v)) return '—'
   const d = clamp(digits, 0, 20)
   return `${v >= 0 ? '+' : ''}${v.toFixed(d)}%`
 }
 
-/**
- * Compact number with suffix (K/M/B).
- * Invalid/NaN/Infinity → `—`
- */
+/** Compact number with suffix (K/M/B). Invalid/NaN/Infinity → `—` */
 export function formatCompactNumber(v: unknown): string {
   if (!isFiniteNum(v)) return '—'
   if (v >= 1e9) return (v / 1e9).toFixed(2) + 'B'
@@ -56,10 +47,7 @@ export function formatCompactNumber(v: unknown): string {
   return v.toFixed(2)
 }
 
-/**
- * Format a value with plus sign for positive numbers (e.g. PnL).
- * Invalid/NaN/Infinity → `—`
- */
+/** Format a value with plus sign for positive numbers (e.g. PnL). Invalid/NaN/Infinity → `—` */
 export function formatSignedCurrency(v: unknown, digits = 2): string {
   if (!isFiniteNum(v)) return '—'
   const d = clamp(digits, 0, 20)
@@ -79,13 +67,26 @@ export function formatPnl(pnl: unknown, pnlPct?: unknown, digits = 2): string {
   return s
 }
 
-// ── Helpers for template literals ──
-
 /** Safe `v.toFixed(d)` — returns `—` on invalid input */
 export function safeFixed(v: unknown, digits = 2): string {
   if (!isFiniteNum(v)) return '—'
   const d = clamp(digits, 0, 20)
   return v.toFixed(d)
+}
+
+/** Format price intelligently: small numbers get more decimals */
+export function formatPrice(v: unknown): string {
+  if (!isFiniteNum(v)) return '—'
+  if (v === 0) return '$0.00'
+  if (v < 0.001) return '$' + v.toExponential(4)
+  if (v < 1) return '$' + v.toFixed(6)
+  return '$' + v.toFixed(2)
+}
+
+/** Format USD value inline — no $ prefix, use toFixed(2) */
+export function formatUsdValue(v: unknown): string {
+  if (!isFiniteNum(v)) return '0.00'
+  return v.toFixed(2)
 }
 
 export { isFiniteNum, safeVal }

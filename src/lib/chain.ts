@@ -1,18 +1,11 @@
-import { BrowserProvider, Contract, formatUnits, JsonRpcProvider, type AbstractProvider } from 'ethers'
+import { BrowserProvider, Contract, formatUnits, JsonRpcProvider, isAddress } from 'ethers'
 import type { Eip1193Provider } from 'ethers'
-import { KNOWN_TOKENS } from '@/config'
+import { KNOWN_TOKENS, RPC_URLS, CHAIN_ID, CHAIN_NAME, BLOCKSCOUT_BASE, FETCH_TIMEOUT } from '@/config'
+import { fetchWithTimeout } from './fetch'
 
 declare global {
   interface Window { ethereum?: Eip1193Provider }
 }
-
-const RPC_URLS = [
-  'https://rpc.mainnet.chain.robinhood.com',
-  'https://robinhood-chain.drpc.org',
-  'https://rpc.rhinofi.xyz/rh',
-]
-
-export const ROBINHOOD_CHAIN_ID = 4663
 
 // Multi-RPC fallback with health check
 let healthyRpcIndex = 0
@@ -22,7 +15,7 @@ export async function getPublicProvider(): Promise<JsonRpcProvider> {
     const idx = (healthyRpcIndex + attempt) % RPC_URLS.length
     const url = RPC_URLS[idx]
     try {
-      const provider = new JsonRpcProvider(url, ROBINHOOD_CHAIN_ID)
+      const provider = new JsonRpcProvider(url, CHAIN_ID)
       await provider.getBlockNumber()
       healthyRpcIndex = idx
       return provider
@@ -34,11 +27,11 @@ export async function getPublicProvider(): Promise<JsonRpcProvider> {
 }
 
 export const ROBINHOOD_CHAIN = {
-  chainId: `0x${ROBINHOOD_CHAIN_ID.toString(16)}`,
-  chainName: 'Robinhood Chain',
+  chainId: `0x${CHAIN_ID.toString(16)}`,
+  chainName: CHAIN_NAME,
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: [RPC_URLS[0]],
-  blockExplorerUrls: ['https://robinhoodchain.blockscout.com'],
+  blockExplorerUrls: [BLOCKSCOUT_BASE],
 }
 
 const ERC20_ABI = [
@@ -78,22 +71,21 @@ export interface PriceData {
 
 export type PriceMap = Record<string, PriceData>
 
+const SYMBOL_TO_ID: Record<string, string> = { ETH: 'ethereum', WETH: 'ethereum', USDG: 'global-dollar', USDC: 'usd-coin' }
+const ID_TO_SYMBOL: Record<string, string> = { ethereum: 'ETH', 'global-dollar': 'USDG', 'usd-coin': 'USDC' }
+
 // ── CoinGecko prices via /api proxy ──
 export async function fetchPrices(symbols: string[]): Promise<PriceMap> {
-  const ids = symbols.map(s => {
-    const map: Record<string, string> = { ETH: 'ethereum', WETH: 'ethereum', USDG: 'global-dollar', USDC: 'usd-coin' }
-    return map[s] || s.toLowerCase()
-  })
-  const cacheKey = ids.sort().join(',')
+  const ids = symbols.map(s => SYMBOL_TO_ID[s] || s.toLowerCase()).filter(Boolean)
+  const cacheKey = [...new Set(ids)].sort().join(',')
 
   try {
-    const res = await fetch(`/api/coingecko/prices?ids=${cacheKey}`)
+    const res = await fetchWithTimeout(`/api/coingecko/prices?ids=${cacheKey}`, undefined, FETCH_TIMEOUT)
     if (!res.ok) return {}
     const data = await res.json()
     const result: PriceMap = {}
-    const reverseMap: Record<string, string> = { ethereum: 'ETH', 'global-dollar': 'USDG', 'usd-coin': 'USDC' }
     for (const [id, val] of Object.entries(data)) {
-      const sym = reverseMap[id] || id.toUpperCase()
+      const sym = ID_TO_SYMBOL[id] || id.toUpperCase()
       const entry = val as { usd: number; usd_24h_change?: number; usd_market_cap?: number }
       result[sym] = { usd: entry.usd, usd_24h_change: entry.usd_24h_change, usd_market_cap: entry.usd_market_cap }
     }
@@ -127,6 +119,8 @@ export function switchToRobinhoodChain(ethereum: { request: (args: { method: str
 
 // ── Balances ──
 export async function fetchBalances(address: string): Promise<TokenInfo[]> {
+  if (!isAddress(address)) throw new Error('Invalid wallet address')
+
   const provider = await getPublicProvider()
   const results: TokenInfo[] = []
 
