@@ -2,6 +2,7 @@
 
 import { useLpQuery } from '@/lib/blockscout'
 import { BLOCKSCOUT_BASE, NFPM_ADDRESS } from '@/config'
+import { formatCompactNumber } from '@/lib/format'
 
 interface Props {
   address: string
@@ -64,7 +65,7 @@ export default function LpDashboard({ address }: Props) {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                 <div>
                   <div className="text-zinc-600">Liquidity</div>
-                  <div className="text-zinc-300 font-mono">{abbreviate(pos.liquidity)}</div>
+                  <div className="text-zinc-300 font-mono">{parseFloat(pos.liquidity) > 0 ? formatCompactNumber(parseFloat(pos.liquidity)) : '0'}</div>
                 </div>
                 <div>
                   <div className="text-zinc-600">Range</div>
@@ -72,11 +73,11 @@ export default function LpDashboard({ address }: Props) {
                 </div>
                 <div>
                   <div className="text-zinc-600">Pending {pos.token0Symbol}</div>
-                  <div className="text-zinc-300 font-mono">{abbreviate(pos.tokensOwed0)}</div>
+                  <div className="text-zinc-300 font-mono">{parseFloat(pos.tokensOwed0) > 0 ? formatCompactNumber(parseFloat(pos.tokensOwed0)) : '0'}</div>
                 </div>
                 <div>
                   <div className="text-zinc-600">Pending {pos.token1Symbol}</div>
-                  <div className="text-zinc-300 font-mono">{abbreviate(pos.tokensOwed1)}</div>
+                  <div className="text-zinc-300 font-mono">{parseFloat(pos.tokensOwed1) > 0 ? formatCompactNumber(parseFloat(pos.tokensOwed1)) : '0'}</div>
                 </div>
               </div>
             </a>
@@ -85,13 +86,4 @@ export default function LpDashboard({ address }: Props) {
       )}
     </div>
   )
-}
-
-function abbreviate(val: string): string {
-  const n = parseFloat(val)
-  if (n === 0) return '0'
-  if (n > 1e9) return (n / 1e9).toFixed(2) + 'B'
-  if (n > 1e6) return (n / 1e6).toFixed(2) + 'M'
-  if (n > 1e3) return (n / 1e3).toFixed(2) + 'K'
-  return n.toFixed(4)
 }

@@ -72,7 +72,7 @@ export function usePortfolio(account: string | null) {
   }, [])
 
   return {
-    tokens, setTokens,
+    tokens,
     totalValue, totalCost, totalPnl,
     loading, error,
     costBasis, editingSymbol, setEditingSymbol, updateCostBasis,

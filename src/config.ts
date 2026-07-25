@@ -52,6 +52,7 @@ export const FALLBACK_TTL = 300_000
 
 // ── React Query ──
 export const QUERY_STALE_TIME = 120_000
+export const QUERY_GC_TIME = 300_000 // 5 min garbage collection
 export const QUERY_MAX_RETRIES = 2
 
 // ── Revalidation (ISR) ──

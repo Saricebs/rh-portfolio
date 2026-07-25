@@ -43,8 +43,8 @@ export default function TransactionHistory({ address, tokenSymbols }: Props) {
     [txs, typeFilter, tokenFilter],
   )
 
-  const typeOptions = ['All', ...new Set(txs.map(t => t.method))]
-  const tokenOptions = ['All', ...new Set(tokenSymbols)]
+  const typeOptions = useMemo(() => ['All', ...new Set(txs.map(t => t.method))], [txs])
+  const tokenOptions = useMemo(() => ['All', ...new Set(tokenSymbols)], [tokenSymbols])
 
   const isLoadingSkeleton = isLoading && txs.length === 0
 
