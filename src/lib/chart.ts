@@ -1,11 +1,6 @@
-import { type TokenInfo } from '@/lib/chain'
-
-const COINGECKO_IDS: Record<string, string> = {
-  ETH: 'ethereum',
-  WETH: 'ethereum',
-  USDG: 'global-dollar',
-  USDC: 'usd-coin',
-}
+import { COINGECKO_IDS, COINGECKO_REVERSE, FETCH_TIMEOUT } from '@/config'
+import { fetchWithTimeout, toError } from './fetch'
+import type { TokenInfo } from '@/lib/chain'
 
 interface PricePoint { t: number; p: number }
 
@@ -18,8 +13,8 @@ export interface ChartData {
 }
 
 async function fetchCoinGeckoChart(id: string, days: number): Promise<PricePoint[]> {
-  const res = await fetch(`/api/coingecko/chart?id=${id}&days=${days}`)
-  if (!res.ok) throw new Error(`CoinGecko chart ${res.status}`)
+  const res = await fetchWithTimeout(`/api/coingecko/chart?id=${id}&days=${days}`, undefined, FETCH_TIMEOUT)
+  if (!res.ok) throw await toError(res, 'coingecko')
   const json = await res.json()
   return (json.prices || []).map(([t, p]: [number, number]) => ({ t, p }))
 }
@@ -73,4 +68,4 @@ export async function fetchPortfolioChart(tokens: TokenInfo[], days: number): Pr
   return { timestamps, values, change24h, change7d, change30d }
 }
 
-export { COINGECKO_IDS }
+export { COINGECKO_IDS, COINGECKO_REVERSE }

@@ -2,13 +2,14 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
+import { QUERY_STALE_TIME, QUERY_MAX_RETRIES } from '@/config'
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 120_000,
-      retry: 3,
-      retryDelay: attempt => Math.min(1000 * 2 ** attempt, 10_000),
+      staleTime: QUERY_STALE_TIME,
+      retry: QUERY_MAX_RETRIES,
+      retryDelay: (attempt: number) => Math.min(1000 * 2 ** attempt, 10_000),
       refetchOnWindowFocus: false,
       refetchOnReconnect: false,
     },

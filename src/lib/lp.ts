@@ -1,8 +1,7 @@
-import { BrowserProvider, Contract, formatUnits, JsonRpcProvider, type AbstractProvider } from 'ethers'
-import type { Eip1193Provider } from 'ethers'
 import { getPublicProvider } from '@/lib/chain'
-
-const NFPM_ADDRESS = '0x73991a25c818bf1f1128deaab1492d45638de0d3'
+import { NFPM_ADDRESS } from '@/config'
+import { isAddress } from 'ethers'
+import { Contract, formatUnits, JsonRpcProvider, type AbstractProvider } from 'ethers'
 
 const NFPM_ABI = [
   'function balanceOf(address owner) view returns (uint256)',
@@ -28,13 +27,6 @@ export interface LpPosition {
   tickUpper: number
   tokensOwed0: string
   tokensOwed1: string
-  estimatedValueUsd?: number
-  sharePercent?: number
-}
-
-async function getWalletProvider(): Promise<BrowserProvider> {
-  if (!window.ethereum) throw new Error('Install MetaMask or Robinhood Wallet')
-  return new BrowserProvider(window.ethereum as Eip1193Provider)
 }
 
 async function getTokenSymbol(provider: AbstractProvider, address: string): Promise<string> {
@@ -56,6 +48,8 @@ function feeToPercent(fee: number): string {
 }
 
 export async function fetchLpPositions(address: string): Promise<LpPosition[]> {
+  if (!isAddress(address)) throw new Error('Invalid wallet address')
+
   const provider = await getPublicProvider() as JsonRpcProvider
   const nfpm = new Contract(NFPM_ADDRESS, NFPM_ABI, provider)
 
@@ -67,8 +61,8 @@ export async function fetchLpPositions(address: string): Promise<LpPosition[]> {
       const tokenId: bigint = await nfpm.tokenOfOwnerByIndex(address, i)
       const pos = await nfpm.positions(tokenId)
 
-      const tok0 = pos.token0
-      const tok1 = pos.token1
+      const tok0: string = pos.token0
+      const tok1: string = pos.token1
       const [sym0, sym1, dec0, dec1] = await Promise.all([
         getTokenSymbol(provider, tok0),
         getTokenSymbol(provider, tok1),

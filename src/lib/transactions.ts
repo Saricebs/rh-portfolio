@@ -1,5 +1,5 @@
-const API = '/api/blockscout'
-const MAX_TXS = 30
+import { BLOCKSCOUT_API, MAX_TXS, FETCH_TIMEOUT } from '@/config'
+import { fetchWithTimeout, toError } from './fetch'
 
 export interface Tx {
   hash: string
@@ -25,7 +25,7 @@ function guessMethod(input: string, value: string): TxMethod {
   const swapSigs = ['0x38ed1739', '0x8803dbee', '0x7ff36ab5', '0x18cbafe5', '0x4a25d94a', '0x5c11d779', '0x414bf389',
     '0x3593564c', '0x6af479b2', '0xc04b8d59', '0xdb3e2198', '0x49404b7c']
   const lpSigs = ['0xf305d719', '0x4c4133cc', '0xe8e33700', '0x0d4c9759', '0x02751cec', '0x441a3e70', '0xf1251e87',
-    '0x2195995c', '0x88316456', '0x5b0d5984', '0xac9650d8', '0x88316456']
+    '0x2195995c', '0x88316456', '0x5b0d5984', '0xac9650d8']
   const bridgeSigs = ['0x4f25e3d0', '0x56591d86', '0x49281e6c', '0x870749e0', '0x8b9e4f93', '0xa2c2ad6e']
 
   if (swapSigs.includes(sig)) return 'Swap'
@@ -53,7 +53,6 @@ interface BsTx {
   gasUsed: string
   gasPrice: string
   input: string
-  contractAddress: string
 }
 
 interface BsTokenTx {
@@ -63,22 +62,29 @@ interface BsTokenTx {
   to: string
   value: string
   tokenSymbol: string
-  tokenName: string
   tokenDecimal: string
   gasUsed: string
   gasPrice: string
 }
 
 async function fetchRawTxs(address: string): Promise<BsTx[]> {
-  const res = await fetch(`${API}?module=account&action=txlist&address=${address}&sort=desc&limit=${MAX_TXS}`)
-  if (!res.ok) throw new Error(`Blockscout txlist ${res.status}`)
-  const json = await res.json()
-  return json.message === 'OK' && Array.isArray(json.result) ? json.result : []
+  const res = await fetchWithTimeout(
+    `${BLOCKSCOUT_API}?module=account&action=txlist&address=${address}&sort=desc&limit=${MAX_TXS}`,
+    undefined, FETCH_TIMEOUT,
+  )
+  return parseBsResponse<BsTx>(res, 'blockscout')
 }
 
 async function fetchTokenTxs(address: string): Promise<BsTokenTx[]> {
-  const res = await fetch(`${API}?module=account&action=tokentx&address=${address}&sort=desc&limit=${MAX_TXS}`)
-  if (!res.ok) throw new Error(`Blockscout tokentx ${res.status}`)
+  const res = await fetchWithTimeout(
+    `${BLOCKSCOUT_API}?module=account&action=tokentx&address=${address}&sort=desc&limit=${MAX_TXS}`,
+    undefined, FETCH_TIMEOUT,
+  )
+  return parseBsResponse<BsTokenTx>(res, 'blockscout')
+}
+
+async function parseBsResponse<T>(res: Response, label: string): Promise<T[]> {
+  if (!res.ok) throw await toError(res, label)
   const json = await res.json()
   return json.message === 'OK' && Array.isArray(json.result) ? json.result : []
 }

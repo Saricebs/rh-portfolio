@@ -1,3 +1,6 @@
+import { FETCH_TIMEOUT } from '@/config'
+import { fetchWithTimeout, toError } from './fetch'
+
 export interface TrendingToken {
   symbol: string
   name: string
@@ -29,20 +32,22 @@ function norm(val: number, max: number): number {
 }
 
 function toToken(c: CoinGeckoToken): TrendingToken {
-  const symbol = (c.symbol || '?').toUpperCase()
-  const name = c.name || '?'
-  const image = c.image || ''
-  const priceUsd = c.current_price || 0
-  const volume24h = c.total_volume || 0
-  const marketCap = c.market_cap || 0
-  const priceChange24h = c.price_change_percentage_24h || 0
-  const coinGeckoId = c.id || ''
-  return { symbol, name, image, priceUsd, priceChange24h, volume24h, marketCap, coinGeckoId, score: 0, volumeScore: 0, marketCapScore: 0, changeScore: 0 }
+  return {
+    symbol: (c.symbol || '?').toUpperCase(),
+    name: c.name || '?',
+    image: c.image || '',
+    priceUsd: c.current_price || 0,
+    volume24h: c.total_volume || 0,
+    marketCap: c.market_cap || 0,
+    priceChange24h: c.price_change_percentage_24h || 0,
+    coinGeckoId: c.id || '',
+    score: 0, volumeScore: 0, marketCapScore: 0, changeScore: 0,
+  }
 }
 
 export async function fetchTrending(): Promise<TrendingToken[]> {
-  const res = await fetch('/api/coingecko/trending')
-  if (!res.ok) throw new Error(`CoinGecko returned ${res.status}`)
+  const res = await fetchWithTimeout('/api/coingecko/trending', undefined, FETCH_TIMEOUT)
+  if (!res.ok) throw await toError(res, 'coingecko')
 
   const data: CoinGeckoToken[] = await res.json()
   const items = data.map(toToken)

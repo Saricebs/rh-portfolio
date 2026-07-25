@@ -3,8 +3,7 @@
 import { useMemo, useState } from 'react'
 import { useTxsQuery } from '@/lib/blockscout'
 import { filterTxs } from '@/lib/transactions'
-
-const BLOCKSCOUT = 'https://robinhoodchain.blockscout.com'
+import { BLOCKSCOUT_BASE } from '@/config'
 
 const METHOD_LABELS: Record<string, string> = {
   Swap: '🔄 Swap',
@@ -21,12 +20,22 @@ interface Props {
   tokenSymbols: string[]
 }
 
+function timeAgo(ts: number) {
+  const diff = Date.now() - ts
+  const mins = Math.floor(diff / 60000)
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  return `${days}d ago`
+}
+
 export default function TransactionHistory({ address, tokenSymbols }: Props) {
   const [typeFilter, setTypeFilter] = useState('All')
   const [tokenFilter, setTokenFilter] = useState('All')
 
   const { data, isLoading, error } = useTxsQuery(address)
-  const txs = data?.data ?? []
+  const txs = useMemo(() => data?.data ?? [], [data])
   const warning = data?.warning ?? null
 
   const filtered = useMemo(
@@ -37,15 +46,7 @@ export default function TransactionHistory({ address, tokenSymbols }: Props) {
   const typeOptions = ['All', ...new Set(txs.map(t => t.method))]
   const tokenOptions = ['All', ...new Set(tokenSymbols)]
 
-  function timeAgo(ts: number) {
-    const diff = Date.now() - ts
-    const mins = Math.floor(diff / 60000)
-    if (mins < 60) return `${mins}m ago`
-    const hrs = Math.floor(mins / 60)
-    if (hrs < 24) return `${hrs}h ago`
-    const days = Math.floor(hrs / 24)
-    return `${days}d ago`
-  }
+  const isLoadingSkeleton = isLoading && txs.length === 0
 
   return (
     <div className="mt-8">
@@ -57,26 +58,26 @@ export default function TransactionHistory({ address, tokenSymbols }: Props) {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        <select
-          value={typeFilter}
-          onChange={e => setTypeFilter(e.target.value)}
-          className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-xs text-zinc-300"
-        >
-          {typeOptions.map(o => <option key={o} value={o}>{o === 'All' ? 'All Types' : METHOD_LABELS[o] || o}</option>)}
-        </select>
-        <select
-          value={tokenFilter}
-          onChange={e => setTokenFilter(e.target.value)}
-          className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-xs text-zinc-300"
-        >
-          {tokenOptions.map(o => <option key={o} value={o}>{o === 'All' ? 'All Tokens' : o}</option>)}
-        </select>
-      </div>
+      {!isLoadingSkeleton && txs.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          <select
+            value={typeFilter}
+            onChange={e => setTypeFilter(e.target.value)}
+            className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-xs text-zinc-300"
+          >
+            {typeOptions.map(o => <option key={o} value={o}>{o === 'All' ? 'All Types' : METHOD_LABELS[o] || o}</option>)}
+          </select>
+          <select
+            value={tokenFilter}
+            onChange={e => setTokenFilter(e.target.value)}
+            className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-xs text-zinc-300"
+          >
+            {tokenOptions.map(o => <option key={o} value={o}>{o === 'All' ? 'All Tokens' : o}</option>)}
+          </select>
+        </div>
+      )}
 
-      {/* List */}
-      {isLoading ? (
+      {isLoadingSkeleton ? (
         <div className="space-y-2">
           {[1, 2, 3].map(i => (
             <div key={i} className="bg-zinc-900/30 border border-zinc-800/60 rounded-xl p-4 space-y-2 animate-pulse">
@@ -86,15 +87,24 @@ export default function TransactionHistory({ address, tokenSymbols }: Props) {
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-zinc-600 text-sm text-center py-8 border border-dashed border-zinc-800 rounded-xl">
-          {error ? (error instanceof Error ? error.message : 'Failed to load') : 'No transactions found'}
+        <div className="flex flex-col items-center justify-center py-12 border border-dashed border-zinc-800 rounded-xl">
+          <div className="text-2xl mb-2">{error ? '⚠️' : '📭'}</div>
+          <div className="text-zinc-500 text-sm">
+            {error
+              ? (error instanceof Error ? error.message : 'Failed to load transactions')
+              : 'No transactions found'
+            }
+          </div>
+          {!error && (
+            <div className="text-xs text-zinc-600 mt-1">Transactions will appear once you use this wallet</div>
+          )}
         </div>
       ) : (
         <div className="space-y-2">
           {filtered.map(tx => (
             <a
               key={tx.hash}
-              href={`${BLOCKSCOUT}/tx/${tx.hash}`}
+              href={`${BLOCKSCOUT_BASE}/tx/${tx.hash}`}
               target="_blank"
               rel="noopener noreferrer"
               className="block bg-zinc-900/30 border border-zinc-800/60 rounded-xl p-4 hover:border-zinc-700 transition-colors"

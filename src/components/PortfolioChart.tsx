@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, startTransition } from 'react'
 import { fetchPortfolioChart, type ChartData } from '@/lib/chart'
 import type { TokenInfo } from '@/lib/chain'
 import { formatCurrency } from '@/lib/format'
@@ -22,11 +22,15 @@ export default function PortfolioChart({ tokens }: Props) {
 
   useEffect(() => {
     if (tokens.length === 0) return
-    setLoading(true)
+    let cancelled = false
+    startTransition(() => setLoading(true))
+
     fetchPortfolioChart(tokens, days)
-      .then(setData)
+      .then(result => { if (!cancelled) startTransition(() => setData(result)) })
       .catch(() => {})
-      .finally(() => setLoading(false))
+      .finally(() => { if (!cancelled) startTransition(() => setLoading(false)) })
+
+    return () => { cancelled = true }
   }, [tokens, days])
 
   const sliced = useMemo(() => {
@@ -34,7 +38,6 @@ export default function PortfolioChart({ tokens }: Props) {
     const ts = data?.timestamps ?? []
     if (vals.length === 0) return { values: [], timestamps: [] }
 
-    // CoinGecko granularity: 1=hourly (~24 pts), 7=hourly (~168), 30=daily (~30)
     let n: number
     if (range === '24H') n = Math.min(vals.length, 24)
     else if (range === '7D') n = Math.min(vals.length, 168)

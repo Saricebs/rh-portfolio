@@ -3,10 +3,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { fetchTransactions, type Tx } from './transactions'
 import { fetchLpPositions, type LpPosition } from './lp'
+import { FALLBACK_TTL, QUERY_STALE_TIME, QUERY_MAX_RETRIES } from '@/config'
 
-// ── In-memory fallback cache for 429 recovery ──
 const fallbackCache = new Map<string, { data: unknown; at: number }>()
-const FALLBACK_TTL = 300_000 // 5 min
 
 function getCached<T>(key: string): T | null {
   const entry = fallbackCache.get(key)
@@ -18,7 +17,6 @@ function setCache(key: string, data: unknown) {
   fallbackCache.set(key, { data, at: Date.now() })
 }
 
-// ── Helper: wrap any fetch to handle 429 ──
 async function with429Fallback<T>(
   key: string,
   fetcher: () => Promise<T>,
@@ -39,38 +37,34 @@ async function with429Fallback<T>(
   }
 }
 
-// ── Txs query ──
+const queryDefaults = {
+  staleTime: QUERY_STALE_TIME,
+  retry: QUERY_MAX_RETRIES,
+  retryDelay: (attempt: number) => Math.min(1000 * 2 ** attempt, 10_000),
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+}
+
 export function useTxsQuery(address: string | null) {
   return useQuery({
     queryKey: ['blockscout-txs', address],
     queryFn: async (): Promise<{ data: Tx[]; warning: string | null }> => {
       if (!address) return { data: [], warning: null }
-      const result = await with429Fallback<Tx[]>(`txs:${address}`, () => fetchTransactions(address))
-      return result
+      return with429Fallback<Tx[]>(`txs:${address}`, () => fetchTransactions(address))
     },
     enabled: !!address,
-    staleTime: 120_000,
-    retry: 3,
-    retryDelay: attempt => Math.min(1000 * 2 ** attempt, 10_000),
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+    ...queryDefaults,
   })
 }
 
-// ── LP positions query ──
 export function useLpQuery(address: string | null) {
   return useQuery({
     queryKey: ['blockscout-lp', address],
     queryFn: async (): Promise<{ data: LpPosition[]; warning: string | null }> => {
       if (!address) return { data: [], warning: null }
-      const result = await with429Fallback<LpPosition[]>(`lp:${address}`, () => fetchLpPositions(address))
-      return result
+      return with429Fallback<LpPosition[]>(`lp:${address}`, () => fetchLpPositions(address))
     },
     enabled: !!address,
-    staleTime: 120_000,
-    retry: 3,
-    retryDelay: attempt => Math.min(1000 * 2 ** attempt, 10_000),
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+    ...queryDefaults,
   })
 }
