@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { getRecentSearches, clearRecentSearches, addRecentSearch } from '@/lib/storage'
-import { isAddress } from 'ethers'
+import { getRecentSearches, clearRecentSearches } from '@/lib/storage'
 
 interface Props {
   onSelect: (address: string) => void
@@ -16,12 +15,8 @@ export default function RecentSearches({ onSelect }: Props) {
     setSearches([])
   }, [])
 
-  const handleEnter = useCallback((addr: string) => {
-    if (isAddress(addr)) {
-      addRecentSearch(addr)
-      setSearches(getRecentSearches())
-      onSelect(addr)
-    }
+  const handleClick = useCallback((addr: string) => {
+    onSelect(addr)
   }, [onSelect])
 
   if (searches.length === 0) return null
@@ -36,7 +31,7 @@ export default function RecentSearches({ onSelect }: Props) {
         {searches.map(addr => (
           <button
             key={addr}
-            onClick={() => handleEnter(addr)}
+            onClick={() => handleClick(addr)}
             className="text-xs text-zinc-400 bg-zinc-800/50 hover:bg-zinc-700/50 hover:text-zinc-200 rounded-lg px-2.5 py-1 transition-colors"
           >
             {addr.slice(0, 6)}...{addr.slice(-4)}

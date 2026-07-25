@@ -8,8 +8,7 @@ import { usePortfolio } from '@/hooks/usePortfolio'
 import { useTrending } from '@/hooks/useTrending'
 import { addRecentSearch } from '@/lib/storage'
 import { formatCurrency, formatCompactNumber, formatPrice, formatUsdValue } from '@/lib/format'
-import { COINGECKO_CATEGORY } from '@/config'
-import { BLOCKSCOUT_BASE } from '@/config'
+import { COINGECKO_CATEGORY, BLOCKSCOUT_BASE } from '@/config'
 import { useToast } from '@/lib/toast'
 import { useClipboard } from '@/lib/clipboard'
 
@@ -36,7 +35,6 @@ export default function Home() {
   const [tab, setTab] = useState<'portfolio' | 'trending'>('portfolio')
   const [selectedToken, setSelectedToken] = useState<TokenInfo | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [refreshing, setRefreshing] = useState(false)
   const { toast } = useToast()
   const { copy } = useClipboard()
 
@@ -45,13 +43,9 @@ export default function Home() {
     disconnect()
   }
 
-  const handleRefresh = async () => {
-    if (loading || refreshing) return
-    setRefreshing(true)
+  const handleRefresh = () => {
+    if (loading) return
     refresh()
-    // Let the usePortfolio effect fire and complete
-    await new Promise(r => setTimeout(r, 100))
-    setRefreshing(false)
   }
 
   const handleRecentSelect = (addr: string) => {
@@ -132,7 +126,7 @@ export default function Home() {
                 </svg>
               </button>
               <button onClick={handleRefresh} disabled={loading} className="bg-zinc-800 hover:bg-zinc-700 px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-2">
-                {loading || refreshing ? (
+                {loading ? (
                   <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -142,7 +136,7 @@ export default function Home() {
                     <path strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                   </svg>
                 )}
-                {loading || refreshing ? '' : 'Refresh'}
+                {loading ? '' : 'Refresh'}
               </button>
             </div>
           )}
