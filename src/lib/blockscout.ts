@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { fetchTransactions, type Tx } from './transactions'
 import { fetchLpPositions, type LpPosition } from './lp'
-import { FALLBACK_TTL, QUERY_STALE_TIME, QUERY_MAX_RETRIES } from '@/config'
+import { FALLBACK_TTL, QUERY_STALE_TIME, QUERY_GC_TIME, QUERY_MAX_RETRIES } from '@/config'
 
 const fallbackCache = new Map<string, { data: unknown; at: number }>()
 
@@ -39,6 +39,7 @@ async function with429Fallback<T>(
 
 const queryDefaults = {
   staleTime: QUERY_STALE_TIME,
+  gcTime: QUERY_GC_TIME,
   retry: QUERY_MAX_RETRIES,
   retryDelay: (attempt: number) => Math.min(1000 * 2 ** attempt, 10_000),
   refetchOnWindowFocus: false,

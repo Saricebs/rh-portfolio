@@ -1,6 +1,6 @@
 import { BrowserProvider, Contract, formatUnits, JsonRpcProvider, isAddress } from 'ethers'
 import type { Eip1193Provider } from 'ethers'
-import { KNOWN_TOKENS, RPC_URLS, CHAIN_ID, CHAIN_NAME, BLOCKSCOUT_BASE, FETCH_TIMEOUT } from '@/config'
+import { KNOWN_TOKENS, RPC_URLS, CHAIN_ID, CHAIN_NAME, BLOCKSCOUT_BASE, FETCH_TIMEOUT, COINGECKO_IDS, COINGECKO_REVERSE } from '@/config'
 import { fetchWithTimeout } from './fetch'
 
 declare global {
@@ -71,12 +71,9 @@ export interface PriceData {
 
 export type PriceMap = Record<string, PriceData>
 
-const SYMBOL_TO_ID: Record<string, string> = { ETH: 'ethereum', WETH: 'ethereum', USDG: 'global-dollar', USDC: 'usd-coin' }
-const ID_TO_SYMBOL: Record<string, string> = { ethereum: 'ETH', 'global-dollar': 'USDG', 'usd-coin': 'USDC' }
-
 // ── CoinGecko prices via /api proxy ──
 export async function fetchPrices(symbols: string[]): Promise<PriceMap> {
-  const ids = symbols.map(s => SYMBOL_TO_ID[s] || s.toLowerCase()).filter(Boolean)
+  const ids = symbols.map(s => COINGECKO_IDS[s] || s.toLowerCase()).filter(Boolean)
   const cacheKey = [...new Set(ids)].sort().join(',')
 
   try {
@@ -85,7 +82,7 @@ export async function fetchPrices(symbols: string[]): Promise<PriceMap> {
     const data = await res.json()
     const result: PriceMap = {}
     for (const [id, val] of Object.entries(data)) {
-      const sym = ID_TO_SYMBOL[id] || id.toUpperCase()
+      const sym = COINGECKO_REVERSE[id] || id.toUpperCase()
       const entry = val as { usd: number; usd_24h_change?: number; usd_market_cap?: number }
       result[sym] = { usd: entry.usd, usd_24h_change: entry.usd_24h_change, usd_market_cap: entry.usd_market_cap }
     }

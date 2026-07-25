@@ -1,4 +1,4 @@
-import { COINGECKO_IDS, COINGECKO_REVERSE, FETCH_TIMEOUT } from '@/config'
+import { COINGECKO_IDS, FETCH_TIMEOUT } from '@/config'
 import { fetchWithTimeout, toError } from './fetch'
 import type { TokenInfo } from '@/lib/chain'
 
@@ -68,4 +68,4 @@ export async function fetchPortfolioChart(tokens: TokenInfo[], days: number): Pr
   return { timestamps, values, change24h, change7d, change30d }
 }
 
-export { COINGECKO_IDS, COINGECKO_REVERSE }
+export { COINGECKO_IDS }
