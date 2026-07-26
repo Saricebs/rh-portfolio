@@ -43,7 +43,7 @@ Opens at `http://localhost:3000`. Connect a wallet or paste any Robinhood Chain 
 BLOCKSCOUT_API_KEY=your_key_here
 ```
 
-See `.env.example`.
+See `.env.example`. Get a key at [robinhoodchain.blockscout.com/account/api-key](https://robinhoodchain.blockscout.com/account/api-key).
 
 Required for transaction history and LP position lookups (the `/api/blockscout` route won't work without it). Everything else — CoinGecko prices/charts and DexScreener trending — needs no key.
 
