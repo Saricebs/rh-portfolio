@@ -1,4 +1,4 @@
-import { BLOCKSCOUT_API, MAX_TXS, FETCH_TIMEOUT } from '@/config'
+import { BLOCKSCOUT_API, BLOCKSCOUT_API_KEY, MAX_TXS, FETCH_TIMEOUT } from '@/config'
 import { fetchWithTimeout, toError } from './fetch'
 
 export interface Tx {
@@ -69,7 +69,7 @@ interface BsTokenTx {
 
 async function fetchRawTxs(address: string): Promise<BsTx[]> {
   const res = await fetchWithTimeout(
-    `${BLOCKSCOUT_API}?module=account&action=txlist&address=${address}&sort=desc&limit=${MAX_TXS}`,
+    `${BLOCKSCOUT_API}?module=account&action=txlist&address=${address}&sort=desc&limit=${MAX_TXS}&apikey=${BLOCKSCOUT_API_KEY}`,
     undefined, FETCH_TIMEOUT,
   )
   return parseBsResponse<BsTx>(res, 'blockscout')
@@ -77,7 +77,7 @@ async function fetchRawTxs(address: string): Promise<BsTx[]> {
 
 async function fetchTokenTxs(address: string): Promise<BsTokenTx[]> {
   const res = await fetchWithTimeout(
-    `${BLOCKSCOUT_API}?module=account&action=tokentx&address=${address}&sort=desc&limit=${MAX_TXS}`,
+    `${BLOCKSCOUT_API}?module=account&action=tokentx&address=${address}&sort=desc&limit=${MAX_TXS}&apikey=${BLOCKSCOUT_API_KEY}`,
     undefined, FETCH_TIMEOUT,
   )
   return parseBsResponse<BsTokenTx>(res, 'blockscout')

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { BLOCKSCOUT_API, REVALIDATE_BLOCKSCOUT, FETCH_TIMEOUT } from '@/config'
+import { BLOCKSCOUT_API, BLOCKSCOUT_API_KEY, REVALIDATE_BLOCKSCOUT, FETCH_TIMEOUT } from '@/config'
 import { isAddress } from 'ethers'
 
 const ALLOWED_MODULES = new Set(['account'])
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
   }
   const parsedLimit = Math.min(Math.max(1, parseInt(limit, 10) || 30), MAX_LIMIT)
 
-  const url = `${BLOCKSCOUT_API}?module=${mod}&action=${action}&address=${address}&sort=${sort}&limit=${parsedLimit}`
+  const url = `${BLOCKSCOUT_API}?module=${mod}&action=${action}&address=${address}&sort=${sort}&limit=${parsedLimit}&apikey=${BLOCKSCOUT_API_KEY}`
 
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT)
