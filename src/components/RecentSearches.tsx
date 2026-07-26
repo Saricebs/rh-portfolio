@@ -14,6 +14,7 @@ export default function RecentSearches({ onSelect }: Props) {
   const [searches, setSearches] = useState<string[]>([])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSearches(getRecentSearches())
   }, [])
 

@@ -50,6 +50,7 @@ export function useAccount() {
   useEffect(() => {
     // A shared ?address=… link wins over whatever this browser last looked at.
     const initial = readUrlAddress() ?? readSavedAccount()
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (initial) setAccount(initial)
     setHydrated(true)
   }, [setAccount])
