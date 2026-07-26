@@ -7,9 +7,6 @@ interface PricePoint { t: number; p: number }
 export interface ChartData {
   timestamps: number[]
   values: number[]
-  change24h: number
-  change7d: number
-  change30d: number
 }
 
 async function fetchCoinGeckoChart(id: string, days: number): Promise<PricePoint[]> {
@@ -40,7 +37,7 @@ export async function fetchPortfolioChart(tokens: TokenInfo[], days: number): Pr
     }
   }
   if (refPoints.length === 0) {
-    return { timestamps: [], values: [], change24h: 0, change7d: 0, change30d: 0 }
+    return { timestamps: [], values: [] }
   }
 
   const timestamps = refPoints.map(p => p.t)
@@ -57,15 +54,7 @@ export async function fetchPortfolioChart(tokens: TokenInfo[], days: number): Pr
     }
   }
 
-  const len = values.length
-  const change24h = len > 1 ? ((values[len - 1] - values[0]) / values[0]) * 100 : 0
-  const dayStep = Math.max(1, Math.floor(len / days))
-  const idx7d = Math.min(len - 1, dayStep * 7)
-  const idx30d = 0
-  const change7d = len > 1 ? ((values[len - 1] - values[idx7d]) / values[idx7d]) * 100 : 0
-  const change30d = len > 1 ? ((values[len - 1] - values[idx30d]) / values[idx30d]) * 100 : 0
-
-  return { timestamps, values, change24h, change7d, change30d }
+  return { timestamps, values }
 }
 
 export { COINGECKO_IDS }

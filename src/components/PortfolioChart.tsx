@@ -38,14 +38,16 @@ export default function PortfolioChart({ tokens }: Props) {
     const ts = data?.timestamps ?? []
     if (vals.length === 0) return { values: [], timestamps: [] }
 
-    let n: number
-    if (range === '24H') n = Math.min(vals.length, 24)
-    else if (range === '7D') n = Math.min(vals.length, 168)
-    else n = vals.length
+    // Slice by elapsed time using latest data timestamp as ref
+    const lastTs = ts[ts.length - 1]
+    const rangeMs = { '24H': 86_400_000, '7D': 604_800_000, '30D': 2_592_000_000 }
+    const cutoff = lastTs - (rangeMs[range] ?? 604_800_000)
+    const startIdx = ts.findIndex(t => t >= cutoff)
+    const idx = startIdx === -1 ? 0 : startIdx
 
     return {
-      values: vals.slice(-n),
-      timestamps: ts.slice(-n),
+      values: vals.slice(idx),
+      timestamps: ts.slice(idx),
     }
   }, [data, range])
 

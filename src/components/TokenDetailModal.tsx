@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import type { TokenInfo } from '@/lib/chain'
-import { formatCurrency, formatSignedCurrency, formatPercent, formatUsdValue } from '@/lib/format'
+import { formatCurrency, formatSignedCurrency, formatPercent, formatUsdValue, formatNumber } from '@/lib/format'
 import { BLOCKSCOUT_BASE } from '@/config'
 import { useClipboard } from '@/lib/clipboard'
 
@@ -54,7 +54,7 @@ export default function TokenDetailModal({ token, onClose }: Props) {
           <div>
             <div className="text-lg font-semibold">{token.symbol}</div>
             <div className="text-sm text-zinc-500">
-              {formatCurrency(parseFloat(token.balance))} {token.symbol}
+              {formatNumber(parseFloat(token.balance))} {token.symbol}
             </div>
           </div>
         </div>

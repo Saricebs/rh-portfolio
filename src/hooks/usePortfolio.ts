@@ -74,6 +74,7 @@ export function usePortfolio(account: string | null) {
     setTotalValue(0)
     setTotalCost(0)
     setTotalPnl(0)
+    setCostBasis({})
     setLastUpdatedState(null)
   }, [])
 
