@@ -476,7 +476,7 @@ export default function Home() {
                     {t.marketCap > 0 && <span>MCap: <span className="text-zinc-300">{formatCompactNumber(t.marketCap)}</span></span>}
                     {t.txns24h && (
                       <span>Activity: <span className={t.txns24h.buys >= t.txns24h.sells ? 'text-emerald-400' : 'text-red-400'}>
-                        {formatCompactNumber(t.txns24h.buys)}B / {formatCompactNumber(t.txns24h.sells)}S
+                        {formatCompactNumber(t.txns24h.buys)} B / {formatCompactNumber(t.txns24h.sells)} S
                       </span></span>
                     )}
                   </div>
