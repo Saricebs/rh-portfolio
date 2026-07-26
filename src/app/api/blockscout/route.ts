@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { BLOCKSCOUT_API, BLOCKSCOUT_API_KEY, REVALIDATE_BLOCKSCOUT, FETCH_TIMEOUT } from '@/config'
+import { BLOCKSCOUT_BASE, REVALIDATE_BLOCKSCOUT, FETCH_TIMEOUT } from '@/config'
 import { isAddress } from 'ethers'
 
 const ALLOWED_MODULES = new Set(['account'])
@@ -41,7 +41,12 @@ export async function GET(req: NextRequest) {
   }
   const parsedLimit = Math.min(Math.max(1, parseInt(limit, 10) || 30), MAX_LIMIT)
 
-  const url = `${BLOCKSCOUT_API}?module=${mod}&action=${action}&address=${address}&sort=${sort}&limit=${parsedLimit}&apikey=${BLOCKSCOUT_API_KEY}`
+  const apiKey = process.env.BLOCKSCOUT_API_KEY
+  if (!apiKey) {
+    return NextResponse.json({ error: 'Server misconfigured: missing BLOCKSCOUT_API_KEY', code: 'MISSING_API_KEY' }, { status: 500 })
+  }
+
+  const url = `${BLOCKSCOUT_BASE}/api?module=${mod}&action=${action}&address=${address}&sort=${sort}&limit=${parsedLimit}&apikey=${apiKey}`
 
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT)
