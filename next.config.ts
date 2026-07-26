@@ -1,5 +1,19 @@
 import type { NextConfig } from 'next'
 
-const nextConfig: NextConfig = {}                                                                      
+const nextConfig: NextConfig = {
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          { key: 'Content-Security-Policy', value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self'; connect-src 'self' https://rpc.mainnet.chain.robinhood.com https://robinhood-chain.drpc.org https://rpc.rhinofi.xyz/rh https://api.dexscreener.com https://api.coingecko.com; frame-ancestors 'none'; form-action 'self'; base-uri 'self'" },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+        ],
+      },
+    ]
+  },
+}
 
 export default nextConfig
