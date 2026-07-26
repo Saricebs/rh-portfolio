@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { COINGECKO_API, REVALIDATE_PRICES, FETCH_TIMEOUT } from '@/config'
+import { rateLimitResponse } from '@/lib/rateLimit'
 
 const ALLOWED_IDS = new Set(['ethereum', 'global-dollar', 'usd-coin'])
 const ALLOWED_PARAMS = new Set(['ids'])
 
 export async function GET(req: NextRequest) {
+  const limited = rateLimitResponse(req, 'cg-prices')
+  if (limited) return limited
+
   const params = req.nextUrl.searchParams
   for (const key of params.keys()) {
     if (!ALLOWED_PARAMS.has(key)) {
@@ -33,7 +37,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: `CoinGecko ${res.status}`, code: 'UPSTREAM_ERROR' }, { status: res.status })
     }
     const data = await res.json()
-    return NextResponse.json(data)
+    return NextResponse.json(data, {
+      headers: { 'Cache-Control': `public, max-age=0, s-maxage=${REVALIDATE_PRICES}` },
+    })
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') {
       return NextResponse.json({ error: 'Request timed out', code: 'TIMEOUT' }, { status: 504 })

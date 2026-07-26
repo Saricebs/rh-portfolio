@@ -1,16 +1,25 @@
 import { BrowserProvider, Contract, formatUnits, JsonRpcProvider, isAddress } from 'ethers'
 import type { Eip1193Provider } from 'ethers'
-import { KNOWN_TOKENS, RPC_URLS, CHAIN_ID, CHAIN_NAME, BLOCKSCOUT_BASE, FETCH_TIMEOUT, COINGECKO_IDS, COINGECKO_REVERSE } from '@/config'
+import { KNOWN_TOKENS, RPC_URLS, CHAIN_ID, CHAIN_NAME, BLOCKSCOUT_BASE, FETCH_TIMEOUT, COINGECKO_IDS } from '@/config'
 import { fetchWithTimeout } from './fetch'
 
 declare global {
   interface Window { ethereum?: Eip1193Provider }
 }
 
-// Multi-RPC fallback with health check
+// Multi-RPC fallback with health check.
+// The healthy provider is memoised so a page that makes several on-chain calls
+// does not pay a getBlockNumber() probe (plus a fresh connection) every time.
 let healthyRpcIndex = 0
+let cachedProvider: JsonRpcProvider | null = null
+let cachedProviderAt = 0
+const PROVIDER_TTL = 60_000
 
 export async function getPublicProvider(): Promise<JsonRpcProvider> {
+  if (cachedProvider && Date.now() - cachedProviderAt < PROVIDER_TTL) {
+    return cachedProvider
+  }
+
   for (let attempt = 0; attempt < RPC_URLS.length; attempt++) {
     const idx = (healthyRpcIndex + attempt) % RPC_URLS.length
     const url = RPC_URLS[idx]
@@ -18,11 +27,14 @@ export async function getPublicProvider(): Promise<JsonRpcProvider> {
       const provider = new JsonRpcProvider(url, CHAIN_ID)
       await provider.getBlockNumber()
       healthyRpcIndex = idx
+      cachedProvider = provider
+      cachedProviderAt = Date.now()
       return provider
     } catch {
       continue
     }
   }
+  cachedProvider = null
   throw new Error('No RPC endpoint available for Robinhood Chain')
 }
 
@@ -73,18 +85,37 @@ export type PriceMap = Record<string, PriceData>
 
 // ── CoinGecko prices via /api proxy ──
 export async function fetchPrices(symbols: string[]): Promise<PriceMap> {
-  const ids = symbols.map(s => COINGECKO_IDS[s] || s.toLowerCase()).filter(Boolean)
-  const cacheKey = [...new Set(ids)].sort().join(',')
+  // Map forwards (symbol -> coingecko id) and fan the response back out over
+  // every symbol that asked for it. A reverse id -> symbol lookup is lossy:
+  // ETH and WETH share the `ethereum` id, so the reverse map can only name one
+  // of them and the other silently ends up priced at $0.
+  const idBySymbol = new Map<string, string>()
+  for (const s of new Set(symbols)) {
+    const id = COINGECKO_IDS[s]
+    if (id) idBySymbol.set(s, id)
+  }
+  if (idBySymbol.size === 0) return {}
+
+  const ids = [...new Set(idBySymbol.values())].sort().join(',')
 
   try {
-    const res = await fetchWithTimeout(`/api/coingecko/prices?ids=${cacheKey}`, undefined, FETCH_TIMEOUT)
+    const res = await fetchWithTimeout(
+      `/api/coingecko/prices?ids=${encodeURIComponent(ids)}`,
+      undefined,
+      FETCH_TIMEOUT,
+    )
     if (!res.ok) return {}
-    const data = await res.json()
+    const data = await res.json() as Record<string, PriceData | undefined>
+
     const result: PriceMap = {}
-    for (const [id, val] of Object.entries(data)) {
-      const sym = COINGECKO_REVERSE[id] || id.toUpperCase()
-      const entry = val as { usd: number; usd_24h_change?: number; usd_market_cap?: number }
-      result[sym] = { usd: entry.usd, usd_24h_change: entry.usd_24h_change, usd_market_cap: entry.usd_market_cap }
+    for (const [symbol, id] of idBySymbol) {
+      const entry = data?.[id]
+      if (!entry || typeof entry.usd !== 'number') continue
+      result[symbol] = {
+        usd: entry.usd,
+        usd_24h_change: entry.usd_24h_change,
+        usd_market_cap: entry.usd_market_cap,
+      }
     }
     return result
   } catch {
@@ -95,11 +126,18 @@ export async function fetchPrices(symbols: string[]): Promise<PriceMap> {
 // ── Wallet ──
 export async function requestAccount(): Promise<string> {
   const provider = await getWalletProvider()
-  const accounts = await provider.send('eth_requestAccounts', [])
-  return accounts[0]
+  const accounts: unknown = await provider.send('eth_requestAccounts', [])
+  const first = Array.isArray(accounts) ? accounts[0] : undefined
+  if (typeof first !== 'string' || !isAddress(first)) {
+    throw new Error('No account returned by wallet')
+  }
+  return first
 }
 
-export function switchToRobinhoodChain(ethereum: { request: (args: { method: string; params: unknown[] }) => Promise<unknown> }) {
+export function switchToRobinhoodChain(
+  ethereum?: { request: (args: { method: string; params: unknown[] }) => Promise<unknown> },
+) {
+  if (!ethereum?.request) return Promise.resolve(undefined)
   return ethereum.request({
     method: 'wallet_switchEthereumChain',
     params: [{ chainId: ROBINHOOD_CHAIN.chainId }],
@@ -156,26 +194,44 @@ export async function fetchBalances(address: string): Promise<TokenInfo[]> {
 export function calcPortfolio(balances: TokenInfo[], prices: PriceMap, costBasis: Record<string, number>) {
   let totalValue = 0
   let totalCost = 0
+  // Only positions that actually have a cost basis contribute to PnL. Treating
+  // an unset basis as $0 would report the entire holding as pure profit.
+  let pricedCostValue = 0
+  let hasAnyCostBasis = false
 
   const enriched = balances.map(t => {
     const p = prices[t.symbol]
     const price = p?.usd || 0
-    const value = parseFloat(t.balance) * price
-    const cost = costBasis[t.symbol] || 0
-    const costTotal = parseFloat(t.balance) * cost
+    const amount = parseFloat(t.balance) || 0
+    const value = amount * price
+    const cost = costBasis[t.symbol]
+    const hasCost = typeof cost === 'number' && Number.isFinite(cost) && cost > 0
+    const costTotal = hasCost ? amount * cost : 0
+
     totalValue += value
-    totalCost += costTotal
+    if (hasCost) {
+      totalCost += costTotal
+      pricedCostValue += value
+      hasAnyCostBasis = true
+    }
+
     return {
       ...t,
       price,
       priceChange24h: p?.usd_24h_change,
       marketCap: p?.usd_market_cap,
       value,
-      costBasis: cost,
-      pnl: value - costTotal,
-      pnlPercent: costTotal > 0 ? ((value - costTotal) / costTotal) * 100 : undefined,
+      costBasis: hasCost ? cost : undefined,
+      pnl: hasCost ? value - costTotal : undefined,
+      pnlPercent: hasCost && costTotal > 0 ? ((value - costTotal) / costTotal) * 100 : undefined,
     }
   })
 
-  return { tokens: enriched, totalValue, totalCost, totalPnl: totalValue - totalCost }
+  return {
+    tokens: enriched,
+    totalValue,
+    totalCost,
+    totalPnl: hasAnyCostBasis ? pricedCostValue - totalCost : undefined,
+    hasCostBasis: hasAnyCostBasis,
+  }
 }

@@ -116,7 +116,7 @@ export default function PortfolioChart({ tokens }: Props) {
         <div>
           <div className="text-zinc-500 text-xs uppercase tracking-wide">Portfolio Value</div>
           <div className="text-lg font-bold mt-0.5">
-            ${formatCurrency(lastVal)}
+            {formatCurrency(lastVal)}
           </div>
           <div className={`text-xs ${up ? 'text-emerald-400' : 'text-red-400'}`}>
             {up ? '+' : ''}{change.toFixed(2)}% ({range})
@@ -135,7 +135,7 @@ export default function PortfolioChart({ tokens }: Props) {
         </div>
       </div>
 
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto max-h-48" preserveAspectRatio="xMidYMid slice">
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto max-h-48" preserveAspectRatio="xMidYMid meet">
         {yLabels.map((yl, i) => (
           <line key={i} x1={pad.left} y1={yl.y} x2={width - pad.right} y2={yl.y} stroke="rgb(39 39 42)" strokeWidth="1" />
         ))}

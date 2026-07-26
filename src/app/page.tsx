@@ -7,7 +7,7 @@ import { useAccount } from '@/hooks/useAccount'
 import { usePortfolio } from '@/hooks/usePortfolio'
 import { useTrending } from '@/hooks/useTrending'
 import { addRecentSearch } from '@/lib/storage'
-import { formatCurrency, formatCompactNumber, formatPrice, formatUsdValue } from '@/lib/format'
+import { formatCurrency, formatCompactNumber, formatPrice, formatUsdValue, formatPnl } from '@/lib/format'
 import { BLOCKSCOUT_BASE } from '@/config'
 import { useToast } from '@/lib/toast'
 import { useClipboard } from '@/lib/clipboard'
@@ -25,7 +25,7 @@ import RecentSearches from '@/components/RecentSearches'
 export default function Home() {
   const { account, connect, disconnect, setAccount } = useAccount()
   const {
-    tokens, totalValue, totalCost, totalPnl,
+    tokens, totalValue, totalCost, totalPnl, hasCostBasis,
     loading, error, lastUpdated,
     costBasis, editingSymbol, setEditingSymbol, updateCostBasis,
     refresh, resetPortfolio,
@@ -43,6 +43,15 @@ export default function Home() {
     disconnect()
   }
 
+  // `connect` is async and rejects when the user dismisses the wallet prompt.
+  // Wired straight to onClick it produced an unhandled rejection and no UI.
+  const handleConnect = () => {
+    connect().catch((e: unknown) => {
+      const msg = e instanceof Error ? e.message : 'Failed to connect wallet'
+      toast(/user rejected|denied/i.test(msg) ? 'Connection cancelled' : msg, 'error')
+    })
+  }
+
   const handleRefresh = () => {
     if (loading) return
     refresh()
@@ -57,7 +66,12 @@ export default function Home() {
   }
 
   const handleShare = () => {
-    copy(window.location.href, 'URL copied')
+    // useAccount keeps ?address=… on the URL; without it this copied a link
+    // that showed the recipient an empty app.
+    if (!account) return
+    const url = new URL(window.location.href)
+    url.searchParams.set('address', account)
+    copy(url.toString(), 'Portfolio link copied')
   }
 
   // ── Client-side token search ──
@@ -111,7 +125,7 @@ export default function Home() {
             </div>
           )}
           {!account ? (
-            <button onClick={connect} className="bg-violet-600 hover:bg-violet-500 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+            <button onClick={handleConnect} className="bg-violet-600 hover:bg-violet-500 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
               Connect Wallet
             </button>
           ) : (
@@ -184,7 +198,7 @@ export default function Home() {
           <p className="text-zinc-500 text-sm max-w-md text-center">
             Connect your wallet to see token balances and track your portfolio PNL on Robinhood Chain.
           </p>
-          <button onClick={connect} className="mt-2 bg-violet-600 hover:bg-violet-500 px-5 py-2.5 rounded-lg text-sm font-medium transition-colors">
+          <button onClick={handleConnect} className="mt-2 bg-violet-600 hover:bg-violet-500 px-5 py-2.5 rounded-lg text-sm font-medium transition-colors">
             Connect Wallet
           </button>
           <div className="w-full max-w-xs mt-4">
@@ -254,10 +268,12 @@ export default function Home() {
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 hover:bg-zinc-900/70 transition-colors">
               <div className="text-zinc-500 text-xs uppercase tracking-wide mb-1">Total Value</div>
               <div className="text-xl font-bold">{formatCurrency(totalValue)}</div>
-              {totalPnl !== 0 && (
+              {hasCostBasis && totalPnl !== undefined ? (
                 <div className={`text-xs mt-1 ${totalPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                   {totalPnl >= 0 ? '+' : ''}{formatCurrency(totalPnl)} PnL
                 </div>
+              ) : (
+                <div className="text-xs mt-1 text-zinc-600">Set a cost basis for PnL</div>
               )}
             </div>
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
@@ -280,15 +296,15 @@ export default function Home() {
                   </>
                 ) : (
                   <>
-                    <div className="text-xl font-bold text-zinc-500">$0.00</div>
-                    <div className="text-xs mt-1 text-zinc-500">{tokens.some(t => t.priceChange24h !== undefined) ? '0.00% change' : '—'}</div>
+                    <div className="text-xl font-bold text-zinc-500">{tokens.some(t => t.priceChange24h !== undefined) ? '0.00%' : '—'}</div>
+                    <div className="text-xs mt-1 text-zinc-500">{tokens.some(t => t.priceChange24h !== undefined) ? 'no change' : 'no price data'}</div>
                   </>
                 )
               })()}
             </div>
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
-              <div className="text-zinc-500 text-xs uppercase tracking-wide mb-1">Total Assets</div>
-              <div className="text-xl font-bold">{formatCurrency(totalCost)}</div>
+              <div className="text-zinc-500 text-xs uppercase tracking-wide mb-1">Cost Basis</div>
+              <div className="text-xl font-bold">{hasCostBasis ? formatCurrency(totalCost) : '—'}</div>
             </div>
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
               <div className="text-zinc-500 text-xs uppercase tracking-wide mb-1">Number of Tokens</div>
@@ -367,8 +383,7 @@ export default function Home() {
                       <div className="font-medium">${formatUsdValue(t.value)}</div>
                       {t.pnl !== undefined && (
                         <div className={`text-xs ${t.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                          {t.pnl >= 0 ? '+' : ''}${t.pnl.toFixed(2)}
-                          {t.pnlPercent !== undefined && ` (${t.pnlPercent >= 0 ? '+' : ''}${t.pnlPercent.toFixed(1)}%)`}
+                          {formatPnl(t.pnl, t.pnlPercent)}
                         </div>
                       )}
                     </div>

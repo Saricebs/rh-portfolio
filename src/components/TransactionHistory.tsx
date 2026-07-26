@@ -123,7 +123,7 @@ export default function TransactionHistory({ address, tokenSymbols }: Props) {
         <div className="space-y-2">
           {filtered.map(tx => (
             <a
-              key={tx.hash}
+              key={tx.id}
               href={`${BLOCKSCOUT_BASE}/tx/${tx.hash}`}
               target="_blank"
               rel="noopener noreferrer"

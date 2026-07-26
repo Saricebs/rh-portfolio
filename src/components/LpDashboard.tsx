@@ -64,11 +64,11 @@ export default function LpDashboard({ address }: Props) {
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                 <div>
-                  <div className="text-zinc-600">Liquidity</div>
-                  <div className="text-zinc-300 font-mono">{parseFloat(pos.liquidity) > 0 ? formatCompactNumber(parseFloat(pos.liquidity)) : '0'}</div>
+                  <div className="text-zinc-600" title="Uniswap V3 liquidity (L). Unitless — not a token amount.">Liquidity (L)</div>
+                  <div className="text-zinc-300 font-mono">{formatCompactNumber(Number(pos.liquidity))}</div>
                 </div>
                 <div>
-                  <div className="text-zinc-600">Range</div>
+                  <div className="text-zinc-600">Tick range</div>
                   <div className="text-zinc-300">{pos.tickLower} → {pos.tickUpper}</div>
                 </div>
                 <div>

@@ -32,6 +32,45 @@ export function clearRecentSearches(): void {
   } catch { /* ignore */ }
 }
 
+// ── Cost basis ──
+// The README advertises cost basis as "saved in your browser"; it previously
+// lived only in React state and was lost on every reload.
+
+const COST_BASIS_KEY = 'rh_cost_basis'
+
+export function getCostBasis(): Record<string, string> {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = localStorage.getItem(COST_BASIS_KEY)
+    if (!raw) return {}
+    const parsed: unknown = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+    const out: Record<string, string> = {}
+    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof k === 'string' && typeof v === 'string' && Number.isFinite(parseFloat(v))) {
+        out[k] = v
+      }
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
+export function setCostBasis(map: Record<string, string>): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(COST_BASIS_KEY, JSON.stringify(map))
+  } catch { /* quota exceeded — silently ignore */ }
+}
+
+export function clearCostBasis(): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.removeItem(COST_BASIS_KEY)
+  } catch { /* ignore */ }
+}
+
 // ── Last updated ──
 
 const LAST_UPDATED_KEY = 'rh_last_updated'

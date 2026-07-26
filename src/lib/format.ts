@@ -38,13 +38,19 @@ export function formatPercent(v: unknown, digits = 2): string {
   return `${v >= 0 ? '+' : ''}${v.toFixed(d)}%`
 }
 
-/** Compact number with suffix (K/M/B). Invalid/NaN/Infinity → `—` */
+/** Compact number with suffix (K/M/B/T/Q). Invalid/NaN/Infinity → `—` */
 export function formatCompactNumber(v: unknown): string {
   if (!isFiniteNum(v)) return '—'
-  if (v >= 1e9) return (v / 1e9).toFixed(2) + 'B'
-  if (v >= 1e6) return (v / 1e6).toFixed(2) + 'M'
-  if (v >= 1e3) return (v / 1e3).toFixed(2) + 'K'
-  return v.toFixed(2)
+  const sign = v < 0 ? '-' : ''
+  const abs = Math.abs(v)
+  // Uniswap-V3 liquidity routinely exceeds 1e15, which used to render as a
+  // 16-digit wall of numerals.
+  if (abs >= 1e15) return sign + (abs / 1e15).toFixed(2) + 'Q'
+  if (abs >= 1e12) return sign + (abs / 1e12).toFixed(2) + 'T'
+  if (abs >= 1e9) return sign + (abs / 1e9).toFixed(2) + 'B'
+  if (abs >= 1e6) return sign + (abs / 1e6).toFixed(2) + 'M'
+  if (abs >= 1e3) return sign + (abs / 1e3).toFixed(2) + 'K'
+  return sign + abs.toFixed(2)
 }
 
 /** Format a value with plus sign for positive numbers (e.g. PnL). Invalid/NaN/Infinity → `—` */

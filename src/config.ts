@@ -48,6 +48,14 @@ export const NFPM_ADDRESS = '0x73991a25c818bf1f1128deaab1492d45638de0d3'
 export const FETCH_TIMEOUT = 10_000
 export const MAX_TXS = 30
 export const FALLBACK_TTL = 300_000
+/** Hard cap on NFPM positions walked per wallet — bounds RPC fan-out. */
+export const MAX_LP_POSITIONS = 50
+/** DexScreener /latest/dex/tokens/{addresses} accepts at most 30 comma-separated addresses. */
+export const DEXSCREENER_BATCH = 30
+
+// ── API route rate limiting (per instance, per IP) ──
+export const RATE_LIMIT_WINDOW = 60_000
+export const RATE_LIMIT_MAX = 60
 
 // ── React Query ──
 export const QUERY_STALE_TIME = 120_000
@@ -57,8 +65,12 @@ export const QUERY_MAX_RETRIES = 2
 // ── Revalidation (ISR) ──
 export const REVALIDATE_BLOCKSCOUT = 120
 export const REVALIDATE_PRICES = 60
+export const REVALIDATE_TRENDING = 120
 
 // ── CoinGecko reverse map ──
+// NOTE: intentionally NOT used for price mapping — it is lossy (ETH and WETH
+// share the `ethereum` id, so a reverse lookup silently drops WETH). Kept only
+// for display helpers that need a canonical symbol for an id.
 export const COINGECKO_REVERSE: Record<string, string> = {
   ethereum: 'ETH',
   'global-dollar': 'USDG',

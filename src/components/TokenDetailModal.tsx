@@ -63,7 +63,14 @@ export default function TokenDetailModal({ token, onClose }: Props) {
           <Row label="USD Value" value={formatCurrency(token.value)} />
           <Row label="Price" value={token.price ? `$${formatUsdValue(token.price)}` : '—'} />
           <Row label="24H Change" value={formatPercent(token.priceChange24h)} valueClass={up ? 'text-emerald-400' : 'text-red-400'} />
-          <Row label="PnL" value={formatSignedCurrency(token.pnl)} valueClass={(token.pnl ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'} />
+          <Row
+            label="PnL"
+            value={token.pnl === undefined ? 'no cost basis set' : formatSignedCurrency(token.pnl)}
+            valueClass={
+              token.pnl === undefined ? 'text-zinc-600'
+                : token.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'
+            }
+          />
           <Row label="Contract" value={token.address ? `${token.address.slice(0, 6)}...${token.address.slice(-4)}` : 'Native ETH'} />
         </div>
 

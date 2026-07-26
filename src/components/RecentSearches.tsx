@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { getRecentSearches, clearRecentSearches } from '@/lib/storage'
 
 interface Props {
@@ -8,7 +8,14 @@ interface Props {
 }
 
 export default function RecentSearches({ onSelect }: Props) {
-  const [searches, setSearches] = useState(getRecentSearches)
+  // Empty on the first client render so it matches the server-rendered HTML;
+  // localStorage is read after mount. Seeding state from localStorage directly
+  // produced a hydration mismatch.
+  const [searches, setSearches] = useState<string[]>([])
+
+  useEffect(() => {
+    setSearches(getRecentSearches())
+  }, [])
 
   const handleClear = useCallback(() => {
     clearRecentSearches()

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { FETCH_TIMEOUT } from '@/config'
+import { FETCH_TIMEOUT, DEXSCREENER_BATCH, REVALIDATE_TRENDING } from '@/config'
+import { rateLimitResponse } from '@/lib/rateLimit'
 
 interface DexProfile {
   tokenAddress: string
@@ -43,12 +44,27 @@ interface TrendingItem {
 }
 
 async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<T> {
-  const res = await fetch(url, { signal, headers: { 'Accept': 'application/json' } })
+  // Every other route opts into the Next fetch cache; this one did not, so each
+  // page view hit DexScreener twice uncached.
+  const res = await fetch(url, {
+    signal,
+    headers: { 'Accept': 'application/json' },
+    next: { revalidate: REVALIDATE_TRENDING },
+  })
   if (!res.ok) throw new Error(`DexScreener ${res.status}`)
   return res.json()
 }
 
+function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = []
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size))
+  return out
+}
+
 export async function GET(req: Request) {
+  const limited = rateLimitResponse(req, 'dex-trending')
+  if (limited) return limited
+
   const urlObj = new URL(req.url)
   for (const key of urlObj.searchParams.keys()) {
     return NextResponse.json({ error: 'Unknown parameter', code: 'INVALID_PARAM' }, { status: 400 })
@@ -71,16 +87,29 @@ export async function GET(req: Request) {
       return NextResponse.json([])
     }
 
-    // 3. Batch fetch pair data for all RH token addresses
-    const addresses = rhProfiles.map(p => p.tokenAddress).join(',')
-    const pairData: { pairs: DexPair[] } = await fetchJson(
-      `https://api.dexscreener.com/latest/dex/tokens/${addresses}`,
-      signal,
+    // 3. Batch fetch pair data. The endpoint accepts at most
+    // DEXSCREENER_BATCH comma-separated addresses, so chunk rather than
+    // sending one oversized URL that fails the whole request.
+    const batches = chunk(rhProfiles.map(p => p.tokenAddress), DEXSCREENER_BATCH)
+    const batchResults = await Promise.all(
+      batches.map(async batch => {
+        try {
+          const data: { pairs: DexPair[] } = await fetchJson(
+            `https://api.dexscreener.com/latest/dex/tokens/${batch.join(',')}`,
+            signal,
+          )
+          return data.pairs ?? []
+        } catch {
+          // One bad batch shouldn't blank the whole leaderboard.
+          return [] as DexPair[]
+        }
+      }),
     )
+    const allPairs = batchResults.flat()
 
     // 4. Build lookup: tokenAddress → best (highest liq) pair
     const bestPair = new Map<string, DexPair>()
-    for (const pair of pairData.pairs ?? []) {
+    for (const pair of allPairs) {
       const addr = pair.baseToken.address.toLowerCase()
       const existing = bestPair.get(addr)
       if (!existing || (pair.liquidity?.usd ?? 0) > (existing.liquidity?.usd ?? 0)) {
@@ -128,13 +157,17 @@ export async function GET(req: Request) {
       const volScore = item.volume24h / maxVol
       const liqScore = item.liquidity / maxLiq
       const ratioScore = item.liquidity > 0 ? Math.min(item.volume24h / item.liquidity / 5, 1) : 0
-      const txnScore = ((item.txns24h.buys + item.txns24h.sells) / 2000)
+      // Clamp: an unclamped txn term let one very busy pair exceed its 15%
+      // weight and dominate the ranking.
+      const txnScore = Math.min((item.txns24h.buys + item.txns24h.sells) / 2000, 1)
       item.score = Math.round((volScore * 0.40 + liqScore * 0.30 + ratioScore * 0.15 + txnScore * 0.15) * 1000) / 10
     }
 
     items.sort((a, b) => b.score - a.score)
 
-    return NextResponse.json(items.slice(0, 25))
+    return NextResponse.json(items.slice(0, 25), {
+      headers: { 'Cache-Control': `public, max-age=0, s-maxage=${REVALIDATE_TRENDING}` },
+    })
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') {
       return NextResponse.json({ error: 'Request timed out', code: 'TIMEOUT' }, { status: 504 })

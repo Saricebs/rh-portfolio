@@ -1,7 +1,9 @@
 import { MAX_TXS, FETCH_TIMEOUT } from '@/config'
-import { fetchWithTimeout, toError } from './fetch'
+import { fetchWithTimeout, toError, BlockscoutError } from './fetch'
 
 export interface Tx {
+  /** Stable, unique React key — a single hash can produce several rows. */
+  id: string
   hash: string
   timestamp: number
   from: string
@@ -36,8 +38,8 @@ function guessMethod(input: string, value: string): TxMethod {
 
 function guessDirection(from: string, to: string, address: string): TxDirection {
   const a = address.toLowerCase()
-  const f = from.toLowerCase()
-  const t = to.toLowerCase()
+  const f = (from || '').toLowerCase()
+  const t = (to || '').toLowerCase()
   if (f === a && t === a) return 'self'
   if (t === a) return 'in'
   return 'out'
@@ -65,6 +67,7 @@ interface BsTokenTx {
   tokenDecimal: string
   gasUsed: string
   gasPrice: string
+  logIndex?: string
 }
 
 async function fetchRawTxs(address: string): Promise<BsTx[]> {
@@ -89,49 +92,91 @@ async function parseBsResponse<T>(res: Response, label: string): Promise<T[]> {
   return json.message === 'OK' && Array.isArray(json.result) ? json.result : []
 }
 
+function isRateLimited(r: PromiseSettledResult<unknown>): boolean {
+  return r.status === 'rejected'
+    && r.reason instanceof BlockscoutError
+    && (r.reason.status === 429 || r.reason.status === 503)
+}
+
+function settledValue<T>(r: PromiseSettledResult<T[]>): T[] {
+  return r.status === 'fulfilled' ? r.value : []
+}
+
 export async function fetchTransactions(address: string): Promise<Tx[]> {
-  const [rawTxs, tokenTxs] = await Promise.all([
-    fetchRawTxs(address).catch(() => [] as BsTx[]),
-    fetchTokenTxs(address).catch(() => [] as BsTokenTx[]),
+  const [rawRes, tokenRes] = await Promise.allSettled([
+    fetchRawTxs(address),
+    fetchTokenTxs(address),
   ])
 
-  const seenHashes = new Set<string>()
-  const result: Tx[] = []
+  // Let rate limiting surface so the caller's stale-cache fallback can engage.
+  // Swallowing it here rendered an empty "no transactions" state instead.
+  if (isRateLimited(rawRes) || isRateLimited(tokenRes)) {
+    throw new BlockscoutError('Blockscout rate limited (429)', 429)
+  }
+  if (rawRes.status === 'rejected' && tokenRes.status === 'rejected') {
+    throw rawRes.reason instanceof Error ? rawRes.reason : new Error('Failed to load transactions')
+  }
 
-  for (const tx of tokenTxs.slice(0, MAX_TXS)) {
-    seenHashes.add(tx.hash)
-    const direction = guessDirection(tx.from, tx.to, address)
+  const rawTxs = settledValue(rawRes)
+  const tokenTxs = settledValue(tokenRes)
+
+  // A token transfer and its parent transaction share a hash. Classify from the
+  // parent's calldata so a swap is not flattened into a plain "Transfer".
+  const methodByHash = new Map<string, TxMethod>()
+  const statusByHash = new Map<string, 'ok' | 'error'>()
+  for (const tx of rawTxs) {
+    const h = tx.hash.toLowerCase()
+    methodByHash.set(h, guessMethod(tx.input || '0x', tx.value))
+    statusByHash.set(h, tx.isError === '0' ? 'ok' : 'error')
+  }
+
+  const result: Tx[] = []
+  const seenHashes = new Set<string>()
+  const seenRows = new Set<string>()
+
+  for (const tx of tokenTxs) {
+    const hash = tx.hash.toLowerCase()
+    // One transaction can emit several ERC-20 Transfer events. Keep each leg —
+    // they are distinct movements — but give every row its own identity.
+    const rowKey = `${hash}:${tx.logIndex ?? ''}:${tx.from}:${tx.to}:${tx.value}:${tx.tokenSymbol}`
+    if (seenRows.has(rowKey)) continue
+    seenRows.add(rowKey)
+    seenHashes.add(hash)
+
     result.push({
+      id: rowKey,
       hash: tx.hash,
-      timestamp: parseInt(tx.timeStamp) * 1000,
+      timestamp: parseInt(tx.timeStamp, 10) * 1000,
       from: tx.from,
       to: tx.to,
       value: tx.value,
       tokenSymbol: tx.tokenSymbol || '?',
       tokenDecimal: tx.tokenDecimal || '18',
-      method: 'Transfer',
-      direction,
-      status: 'ok',
+      method: methodByHash.get(hash) ?? 'Transfer',
+      direction: guessDirection(tx.from, tx.to, address),
+      status: statusByHash.get(hash) ?? 'ok',
       gasUsed: tx.gasUsed || '0',
       gasPrice: tx.gasPrice || '0',
     })
   }
 
-  for (const tx of rawTxs.slice(0, MAX_TXS)) {
-    if (seenHashes.has(tx.hash)) continue
-    seenHashes.add(tx.hash)
-    const direction = guessDirection(tx.from, tx.to, address)
-    const method = guessMethod(tx.input || '0x', tx.value)
+  for (const tx of rawTxs) {
+    const hash = tx.hash.toLowerCase()
+    if (seenHashes.has(hash)) continue
+    seenHashes.add(hash)
+
     result.push({
+      id: hash,
       hash: tx.hash,
-      timestamp: parseInt(tx.timeStamp) * 1000,
+      timestamp: parseInt(tx.timeStamp, 10) * 1000,
       from: tx.from,
       to: tx.to,
       value: tx.value,
-      tokenSymbol: method === 'Transfer' && direction === 'in' ? 'ETH' : '',
+      // Native-value movements are ETH in both directions, not just inbound.
+      tokenSymbol: tx.value && tx.value !== '0' ? 'ETH' : '',
       tokenDecimal: '18',
-      method,
-      direction,
+      method: methodByHash.get(hash) ?? guessMethod(tx.input || '0x', tx.value),
+      direction: guessDirection(tx.from, tx.to, address),
       status: tx.isError === '0' ? 'ok' : 'error',
       gasUsed: tx.gasUsed || '0',
       gasPrice: tx.gasPrice || '0',
@@ -139,7 +184,8 @@ export async function fetchTransactions(address: string): Promise<Tx[]> {
   }
 
   result.sort((a, b) => b.timestamp - a.timestamp)
-  return result
+  // Each source was capped at MAX_TXS independently; cap the merged list too.
+  return result.slice(0, MAX_TXS)
 }
 
 export function filterTxs(txs: Tx[], typeFilter: string | null, tokenFilter: string | null): Tx[] {
@@ -148,10 +194,9 @@ export function filterTxs(txs: Tx[], typeFilter: string | null, tokenFilter: str
     filtered = filtered.filter(tx => tx.method === typeFilter)
   }
   if (tokenFilter && tokenFilter !== 'All') {
-    filtered = filtered.filter(tx => {
-      const sym = tx.tokenSymbol?.toLowerCase() || ''
-      return sym.includes(tokenFilter.toLowerCase())
-    })
+    // Exact match — a substring test made "ETH" also select every WETH row.
+    const target = tokenFilter.toLowerCase()
+    filtered = filtered.filter(tx => (tx.tokenSymbol || '').toLowerCase() === target)
   }
   return filtered
 }

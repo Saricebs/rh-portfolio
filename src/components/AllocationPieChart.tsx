@@ -3,9 +3,11 @@
 import { useMemo } from 'react'
 import { formatCurrency } from '@/lib/format'
 
+// All 10 hues distinct — index 0 and 6 were both #7c3aed, so a 7-token wallet
+// rendered two indistinguishable slices.
 const PIE_COLORS = [
   '#7c3aed', '#2563eb', '#059669', '#d97706',
-  '#dc2626', '#0891b2', '#7c3aed', '#9333ea',
+  '#dc2626', '#0891b2', '#65a30d', '#9333ea',
   '#c026d3', '#a21caf',
 ]
 
