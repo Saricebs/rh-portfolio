@@ -2,7 +2,7 @@
 
 Track your wallet balances and PNL on Robinhood Chain. No backend, no database — just your wallet address and on-chain data.
 
-Live at [rh-portfolio-ruddy.vercel.app](https://rh-portfolio-ruddy.vercel.app)
+Live at [robinhods.vercel.app](https://robinhods.vercel.app/)
 
 ## Features
 
