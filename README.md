@@ -40,3 +40,4 @@ npx vercel --prod
 ```
 
 Environment variables: none needed — all API calls go through Next.js route handlers.
+
