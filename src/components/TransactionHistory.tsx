@@ -30,6 +30,26 @@ function timeAgo(ts: number) {
   return `${days}d ago`
 }
 
+function formatTxValue(value: string, decimals: string): string {
+  const d = parseInt(decimals) || 18
+  const v = BigInt(value)
+  if (v === 0n) return '0'
+  // Use ethers-like formatting: divide by 10^decimals
+  const divisor = 10n ** BigInt(d)
+  const whole = v / divisor
+  const fraction = v % divisor
+  if (whole > 0n) {
+    const fracStr = fraction.toString().padStart(Number(d), '0').replace(/0+$/, '')
+    return fracStr ? `${whole.toString()}.${fracStr.slice(0, 4)}` : whole.toString()
+  }
+  // Sub-1 unit: show first 4 significant digits
+  const fracStr = fraction.toString().padStart(Number(d), '0')
+  const trimmed = fracStr.replace(/^0+/, '')
+  if (!trimmed) return '0'
+  const leadingZeros = fracStr.length - trimmed.length
+  return `0.${'0'.repeat(leadingZeros)}${trimmed.slice(0, 4)}`
+}
+
 export default function TransactionHistory({ address, tokenSymbols }: Props) {
   const [typeFilter, setTypeFilter] = useState('All')
   const [tokenFilter, setTokenFilter] = useState('All')
@@ -119,10 +139,19 @@ export default function TransactionHistory({ address, tokenSymbols }: Props) {
                     {tx.direction === 'in' ? '↓' : tx.direction === 'out' ? '↑' : '↔'}
                   </div>
                   <div>
-                    <div className="text-sm font-medium">
+                    <div className="text-sm font-medium flex items-center gap-2">
                       {METHOD_LABELS[tx.method] || tx.method}
+                      {tx.tokenSymbol && tx.tokenSymbol !== '?' && (
+                        <span className="text-zinc-500">· {tx.tokenSymbol}</span>
+                      )}
                     </div>
                     <div className="text-xs text-zinc-500">
+                      {tx.value && tx.value !== '0' && (
+                        <>
+                          {formatTxValue(tx.value, tx.tokenDecimal)} {tx.tokenSymbol || ''}
+                          {' · '}
+                        </>
+                      )}
                       {tx.direction === 'in' ? 'from ' : tx.direction === 'out' ? 'to ' : ''}
                       {tx.direction === 'in' ? tx.from.slice(0, 6) + '...' + tx.from.slice(-4) :
                        tx.direction === 'out' ? tx.to.slice(0, 6) + '...' + tx.to.slice(-4) :
