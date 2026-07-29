@@ -45,7 +45,7 @@ export const COINGECKO_CATEGORY = 'robinhood-ecosystem'
 export const NFPM_ADDRESS = '0x73991a25c818bf1f1128deaab1492d45638de0d3'
 
 // ── Limits ──
-export const FETCH_TIMEOUT = 10_000
+export const FETCH_TIMEOUT = 15_000
 export const MAX_TXS = 30
 export const FALLBACK_TTL = 300_000
 /** Hard cap on NFPM positions walked per wallet — bounds RPC fan-out. */

@@ -134,7 +134,12 @@ export async function fetchTransactions(address: string): Promise<Tx[]> {
   const seenHashes = new Set<string>()
   const seenRows = new Set<string>()
 
+  const NULL_ADDRESS = '0x0000000000000000000000000000000000000000'
   for (const tx of tokenTxs) {
+    // Skip mint events (from = 0x0000...0000) — they're contract internal
+    // events that clutter activity with meaningless "from zero" rows.
+    if ((tx.from || '').toLowerCase() === NULL_ADDRESS) continue
+
     const hash = tx.hash.toLowerCase()
     // One transaction can emit several ERC-20 Transfer events. Keep each leg —
     // they are distinct movements — but give every row its own identity.

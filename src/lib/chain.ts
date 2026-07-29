@@ -256,7 +256,13 @@ export function calcPortfolio(balances: TokenInfo[], prices: PriceMap, costBasis
   let pricedCostValue = 0
   let hasAnyCostBasis = false
 
-  const enriched = balances.map(t => {
+  // Merge same-symbol tokens (e.g. multiple USDG contracts) before enriching.
+  // Address-level dedup already happened in fetchBalances, but Blockscout can
+  // return several contracts that all call themselves "USDG". Keeping them
+  // separate breaks the pie chart, allocation, and analytics.
+  const merged = mergeBySymbol(balances)
+
+  const enriched = merged.map(t => {
     const p = prices[t.symbol]
     const price = p?.usd || 0
     const amount = parseFloat(t.balance) || 0
@@ -291,4 +297,24 @@ export function calcPortfolio(balances: TokenInfo[], prices: PriceMap, costBasis
     totalPnl: hasAnyCostBasis ? pricedCostValue - totalCost : undefined,
     hasCostBasis: hasAnyCostBasis,
   }
+}
+
+/** Merge TokenInfo entries that share the same symbol by summing their balance.
+ *  The first entry's address/logo/decimals win; the raw balance is kept for
+ *  the first entry only. */
+function mergeBySymbol(items: TokenInfo[]): TokenInfo[] {
+  const map = new Map<string, TokenInfo>()
+  for (const t of items) {
+    const existing = map.get(t.symbol)
+    if (existing) {
+      // Sum decimals-normalized balances
+      const eBal = parseFloat(existing.balance) || 0
+      const tBal = parseFloat(t.balance) || 0
+      existing.balance = String(eBal + tBal)
+      existing.balanceRaw = existing.balanceRaw + t.balanceRaw
+    } else {
+      map.set(t.symbol, { ...t })
+    }
+  }
+  return [...map.values()]
 }
