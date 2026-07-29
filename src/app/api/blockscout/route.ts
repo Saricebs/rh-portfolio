@@ -4,7 +4,7 @@ import { isAddress } from 'ethers'
 import { rateLimitResponse } from '@/lib/rateLimit'
 
 const ALLOWED_MODULES = new Set(['account'])
-const ALLOWED_ACTIONS = new Set(['txlist', 'tokentx'])
+const ALLOWED_ACTIONS = new Set(['txlist', 'tokentx', 'tokenlist'])
 const ALLOWED_SORT = new Set(['asc', 'desc'])
 const ALLOWED_PARAMS = new Set(['address', 'module', 'action', 'sort', 'limit'])
 const MAX_LIMIT = 100

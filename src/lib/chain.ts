@@ -153,12 +153,22 @@ export function switchToRobinhoodChain(
 }
 
 // ── Balances ──
+interface BlockscoutToken {
+  balance: string
+  contractAddress: string
+  decimals: string
+  name: string
+  symbol: string
+  type: string
+}
+
 export async function fetchBalances(address: string): Promise<TokenInfo[]> {
   if (!isAddress(address)) throw new Error('Invalid wallet address')
 
   const provider = await getPublicProvider()
   const results: TokenInfo[] = []
 
+  // 1. Native ETH balance
   const ethBal = await provider.getBalance(address)
   if (ethBal > 0n) {
     results.push({
@@ -169,8 +179,55 @@ export async function fetchBalances(address: string): Promise<TokenInfo[]> {
     })
   }
 
+  // 2. Blockscout tokenlist — discovers ALL ERC-20 tokens in one call
+  const knownByAddress = new Map(
+    KNOWN_TOKENS.filter(t => t.address).map(t => [t.address!.toLowerCase(), t]),
+  )
+  const seen = new Set<string>()
+
+  try {
+    const res = await fetchWithTimeout(
+      `/api/blockscout?module=account&action=tokenlist&address=${address}`,
+      undefined,
+      FETCH_TIMEOUT,
+    )
+    if (res.ok) {
+      const data = await res.json()
+      if (data.message === 'OK' && Array.isArray(data.result)) {
+        for (const tok of data.result as BlockscoutToken[]) {
+          if (tok.type !== 'ERC-20') continue
+          const addr = tok.contractAddress.toLowerCase()
+          if (seen.has(addr)) continue
+          seen.add(addr)
+
+          const decimals = parseInt(tok.decimals, 10) || 18
+          const bal = BigInt(tok.balance)
+          if (bal <= 0n) continue
+
+          const known = knownByAddress.get(addr)
+          results.push({
+            symbol: tok.symbol,
+            address: tok.contractAddress,
+            decimals,
+            logo: known?.logo || '',
+            balance: formatUnits(bal, decimals),
+            balanceRaw: bal,
+          })
+        }
+      }
+    }
+  } catch {
+    // Blockscout unavailable — fall through to direct-RPC check for known tokens
+  }
+
+  // 3. Fallback: check known tokens that Blockscout might have missed or when
+  //    the Blockscout call failed entirely.
   for (const tok of KNOWN_TOKENS.slice(1)) {
     if (!tok.address) continue
+    const addr = tok.address.toLowerCase()
+    if (seen.has(addr)) continue
+    seen.add(addr)
+
     const contract = new Contract(tok.address, ERC20_ABI, provider)
     try {
       const bal = await contract.balanceOf(address)
