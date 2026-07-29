@@ -402,7 +402,7 @@ export default function Home() {
                         <button onClick={() => setEditingSymbol(null)} className="text-zinc-600 hover:text-zinc-400">cancel</button>
                       </>
                     ) : (
-                      <button onClick={() => setEditingSymbol(t.symbol)} className="text-zinc-400 hover:text-white">
+                      <button onClick={(e) => { e.stopPropagation(); setEditingSymbol(t.symbol) }} className="text-zinc-400 hover:text-white">
                         ${costBasis[t.symbol] ? parseFloat(costBasis[t.symbol]).toFixed(2) : '—'} / {t.symbol}
                       </button>
                     )}
