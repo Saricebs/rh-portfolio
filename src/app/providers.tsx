@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
 import { QUERY_STALE_TIME, QUERY_GC_TIME, QUERY_MAX_RETRIES } from '@/config'
 import { ToastProvider } from '@/lib/toast'
+import '@/lib/appkit' // Initialize Reown AppKit
 
 function makeQueryClient() {
   return new QueryClient({

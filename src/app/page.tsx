@@ -21,11 +21,8 @@ import WalletAnalyticsComponent from '@/components/WalletAnalytics'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import PortfolioSummary from '@/components/PortfolioSummary'
 import RecentSearches from '@/components/RecentSearches'
-import WalletSelector from '@/components/WalletSelector'
-
 export default function Home() {
-  const { account, disconnect, setAccount } = useAccount()
-  const [walletOpen, setWalletOpen] = useState(false)
+  const { account, disconnect, setAccount, connect } = useAccount()
   const {
     tokens, totalValue, totalCost, totalPnl, hasCostBasis,
     loading, error, lastUpdated,
@@ -45,10 +42,8 @@ export default function Home() {
     disconnect()
   }
 
-  // `connect` is async and rejects when the user dismisses the wallet prompt.
-  // Now handled by WalletSelector modal instead.
   const handleConnect = () => {
-    setWalletOpen(true)
+    connect()
   }
 
   const handleRefresh = () => {
@@ -507,19 +502,7 @@ export default function Home() {
         <TokenDetailModalComponent token={selectedToken} onClose={() => setSelectedToken(null)} />
       )}
 
-      {/* Wallet Selector Modal */}
-      <WalletSelector
-        open={walletOpen}
-        onClose={() => setWalletOpen(false)}
-        onConnect={(addr) => {
-          addRecentSearch(addr)
-          if (account !== addr) {
-            resetPortfolio()
-            setAccount(addr)
-          }
-          setWalletOpen(false)
-        }}
-      />
+
 
       {/* Footer */}
       <footer className="border-t border-zinc-800/50 mt-12 py-6 text-xs text-zinc-600 text-center space-y-1">

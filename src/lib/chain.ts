@@ -1,11 +1,6 @@
 import { BrowserProvider, Contract, formatUnits, JsonRpcProvider, isAddress } from 'ethers'
-import type { Eip1193Provider } from 'ethers'
 import { KNOWN_TOKENS, RPC_URLS, CHAIN_ID, CHAIN_NAME, BLOCKSCOUT_BASE, FETCH_TIMEOUT, COINGECKO_IDS } from '@/config'
 import { fetchWithTimeout } from './fetch'
-
-declare global {
-  interface Window { ethereum?: Eip1193Provider }
-}
 
 // Multi-RPC fallback with health check.
 // The healthy provider is memoised so a page that makes several on-chain calls
@@ -70,7 +65,7 @@ export interface TokenInfo {
 
 async function getWalletProvider(): Promise<BrowserProvider> {
   if (!window.ethereum) throw new Error('Install MetaMask or Robinhood Wallet')
-  const provider = new BrowserProvider(window.ethereum)
+  const provider = new BrowserProvider(window.ethereum as any)
   await provider.getBlockNumber()
   return provider
 }
