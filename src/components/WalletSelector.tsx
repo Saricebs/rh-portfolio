@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+import { switchToRobinhoodChain } from '@/lib/chain'
 
 // ── Wallet definitions ──
 
@@ -10,8 +11,10 @@ interface WalletDef {
   icon: string  // inline SVG
   detect: () => boolean
   connect: () => Promise<string>
+  /** What to show on the button when installed vs not installed */
   actionLabel: (installed: boolean) => string
-  actionHref?: string  // external download link when not installed
+  /** URL to redirect to when the wallet is NOT installed — null = show error */
+  actionHref: string | null
 }
 
 function detectEIP1193(): boolean {
@@ -37,7 +40,8 @@ const WALLETS: WalletDef[] = [
       if (typeof first !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(first)) throw new Error('No account returned')
       return first
     },
-    actionLabel: (installed: boolean) => installed ? 'Installed' : 'Install',
+    actionLabel: (installed: boolean) => installed ? 'Connect' : 'Install',
+    actionHref: 'https://metamask.io/download/',
   },
   {
     id: 'rabby',
@@ -51,7 +55,8 @@ const WALLETS: WalletDef[] = [
       if (typeof first !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(first)) throw new Error('No account returned')
       return first
     },
-    actionLabel: (installed: boolean) => installed ? 'Installed' : 'Install',
+    actionLabel: (installed: boolean) => installed ? 'Connect' : 'Install',
+    actionHref: 'https://rabby.io/',
   },
   {
     id: 'walletconnect',
@@ -59,11 +64,27 @@ const WALLETS: WalletDef[] = [
     icon: `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="8" fill="#3396FF"/><circle cx="20" cy="20" r="10" fill="white"/><path d="M14 18C16 16 18 16 20 18C22 20 24 20 26 18" stroke="#3396FF" stroke-width="1.5" stroke-linecap="round"/><path d="M15 21C16.5 19.5 18.5 19.5 20 21C21.5 22.5 23.5 22.5 25 21" stroke="#3396FF" stroke-width="1.5" stroke-linecap="round"/></svg>`,
     detect: () => true,
     connect: async () => {
-      // WalletConnect flow: open URI for mobile wallets.
-      // For now, prompt the user to use their mobile wallet or paste address manually.
-      throw new Error('WALLETCONNECT_URI')
+      // Dynamic import of @walletconnect/ethereum-provider (lazy-loaded)
+      const { default: WalletConnectProvider } = await import('@walletconnect/ethereum-provider')
+
+      const provider = await WalletConnectProvider.init({
+        projectId: '49af56b842b5169707e1a97f47b0cca0', // public WalletConnect project ID (demo-safe)
+        chains: [4663],
+        optionalChains: [1, 137, 42161, 8453],
+        rpcMap: {
+          4663: 'https://rpc.mainnet.chain.robinhood.com',
+        },
+        showQrModal: true,
+      })
+
+      await provider.enable()
+      const accounts = provider.accounts
+      const first = Array.isArray(accounts) ? accounts[0] : undefined
+      if (typeof first !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(first)) throw new Error('No account returned')
+      return first
     },
     actionLabel: () => 'QR Code',
+    actionHref: null,
   },
   {
     id: 'robinhood',
@@ -71,7 +92,7 @@ const WALLETS: WalletDef[] = [
     icon: `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="8" fill="#00C853"/><path d="M12 20C12 15.6 15.6 12 20 12C24.4 12 28 15.6 28 20C28 24.4 24.4 28 20 28C15.6 28 12 24.4 12 20Z" fill="white" opacity="0.9"/><path d="M20 14C22.2 14 24 15.8 24 18C24 20.2 22.2 22 20 22C17.8 22 16 20.2 16 18C16 15.8 17.8 14 20 14Z" fill="#00C853"/><rect x="18" y="22" width="4" height="6" rx="2" fill="white"/></svg>`,
     detect: () => false,
     connect: async () => {
-      throw new Error('Open the Robinhood Wallet app on your phone and scan the QR code, or paste your address manually.')
+      throw new Error('Open the Robinhood Wallet app on your phone and scan the QR code, or paste your address manually in the search bar.')
     },
     actionLabel: () => 'Get Started',
     actionHref: 'https://robinhood.com/us/en/about/crypto/',
@@ -107,51 +128,37 @@ export default function WalletSelector({ open, onClose, onConnect }: Props) {
 
   const handleConnect = async (wallet: WalletDef) => {
     if (status === 'connecting') return
+    const isInstalled = installed[wallet.id] ?? false
+
+    // CASE 1: Wallet not installed → redirect to download / show install help
+    if (!isInstalled) {
+      if (wallet.actionHref) {
+        window.open(wallet.actionHref, '_blank', 'noopener,noreferrer')
+        // Keep modal open so user can come back after installing
+        setStatus('error')
+        setErrorMsg(`Open the download page that just opened, install ${wallet.name}, then come back and try again.`)
+      } else {
+        setStatus('error')
+        setErrorMsg(`Install ${wallet.name} first to connect.`)
+      }
+      return
+    }
+
+    // CASE 2: Wallet installed → connect
     setStatus('connecting')
     setErrorMsg('')
 
     try {
-      // Always try to switch to Robinhood Chain before requesting accounts
-      const eth = (window as unknown as Record<string, unknown>).ethereum as { request?: (args: { method: string; params?: unknown[] }) => Promise<unknown> } | undefined
-
-      if (wallet.id === 'walletconnect') {
-        // Show QR flow — for now open the WalletConnect website as a guide
-        setErrorMsg('WalletConnect: Open your mobile wallet, scan the QR code or paste your address in the search bar.')
-        setStatus('error')
-        return
-      }
-
-      if (wallet.id === 'robinhood') {
-        // Redirect to download
-        if (wallet.actionHref) window.open(wallet.actionHref, '_blank')
-        else setErrorMsg('Download Robinhood Wallet from the App Store or Google Play.')
-        setStatus('error')
-        return
-      }
-
+      // Request accounts from the wallet
       const address = await wallet.connect()
 
       // Switch to Robinhood Chain
+      const eth = (window as unknown as Record<string, unknown>).ethereum as { request: (args: { method: string; params: unknown[] }) => Promise<unknown> } | undefined
       if (eth?.request) {
         try {
-          await eth.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: '0x1237' }], // 4663 in hex
-          })
-        } catch (switchError: unknown) {
-          const e = switchError as { code?: number }
-          if (e.code === 4902) {
-            await eth.request({
-              method: 'wallet_addEthereumChain',
-              params: [{
-                chainId: '0x1237',
-                chainName: 'Robinhood Chain',
-                nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-                rpcUrls: ['https://rpc.mainnet.chain.robinhood.com'],
-                blockExplorerUrls: ['https://robinhoodchain.blockscout.com'],
-              }],
-            })
-          }
+          await switchToRobinhoodChain(eth)
+        } catch {
+          // User declined network switch — still proceed with connection
         }
       }
 
@@ -159,10 +166,10 @@ export default function WalletSelector({ open, onClose, onConnect }: Props) {
       onClose()
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Connection failed'
-      if (msg === 'WALLETCONNECT_URI') {
-        setErrorMsg('WalletConnect: Open your mobile wallet and connect via WalletConnect, or paste your address in the search bar.')
+      if (msg.includes('WALLETCONNECT_URI') || msg.includes('User closed modal') || msg.includes('rejected')) {
+        setErrorMsg('Connection cancelled.')
       } else {
-        setErrorMsg(/user rejected|denied|rejected/i.test(msg) ? 'Connection cancelled' : msg)
+        setErrorMsg(msg)
       }
       setStatus('error')
     }
@@ -194,7 +201,6 @@ export default function WalletSelector({ open, onClose, onConnect }: Props) {
             const isInstalled = installed[wallet.id] ?? false
             const busy = status === 'connecting'
             const label = wallet.actionLabel(isInstalled)
-            const isAction = label === 'QR Code' || label === 'Get Started'
 
             return (
               <button
@@ -212,8 +218,8 @@ export default function WalletSelector({ open, onClose, onConnect }: Props) {
 
                 {/* Status pill */}
                 <span className={`shrink-0 text-xs font-medium px-3 py-1 rounded-full transition-colors ${
-                  isInstalled && !isAction
-                    ? 'bg-emerald-900/40 text-emerald-400 border border-emerald-800/40'
+                  isInstalled
+                    ? 'bg-violet-900/40 text-violet-400 border border-violet-800/40'
                     : 'bg-zinc-800 text-zinc-400 border border-zinc-700/40'
                 }`}>
                   {busy ? 'Connecting...' : label}
