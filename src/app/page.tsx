@@ -22,7 +22,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary'
 import PortfolioSummary from '@/components/PortfolioSummary'
 import RecentSearches from '@/components/RecentSearches'
 export default function Home() {
-  const { account, disconnect, setAccount, connect } = useAccount()
+  const { account, isConnected, disconnect, setAccount, connect } = useAccount()
   const {
     tokens, totalValue, totalCost, totalPnl, hasCostBasis,
     loading, error, lastUpdated,
@@ -93,7 +93,13 @@ export default function Home() {
           <h1 className="text-lg font-semibold">Portfolio</h1>
         </div>
         <div className="flex items-center gap-4">
-          {account && (
+          {account && !isConnected && (
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-zinc-400">Viewing: {account.slice(0, 6)}...{account.slice(-4)}</span>
+              <button onClick={() => setAccount(null)} className="text-xs text-zinc-600 hover:text-red-400 transition-colors" title="Clear address">✕</button>
+            </div>
+          )}
+          {account && isConnected && (
             <div className="flex items-center gap-3">
               <button
                 onClick={() => copy(account, 'Address copied')}
@@ -118,7 +124,7 @@ export default function Home() {
               <button onClick={handleDisconnect} className="text-xs text-zinc-600 hover:text-red-400 transition-colors" title="Disconnect">✕</button>
             </div>
           )}
-          {!account ? (
+          {!account || !isConnected ? (
             <button onClick={handleConnect} className="bg-violet-600 hover:bg-violet-500 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
               Connect Wallet
             </button>

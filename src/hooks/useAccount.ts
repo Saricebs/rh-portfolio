@@ -35,6 +35,7 @@ export function useAccount() {
 
   return { 
     account: address && isAddress(address) ? address : null, 
+    isConnected,
     setAccount, 
     connect, 
     disconnect, 
