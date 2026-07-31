@@ -55,7 +55,7 @@ export const DEXSCREENER_BATCH = 30
 
 // ── API route rate limiting (per instance, per IP) ──
 export const RATE_LIMIT_WINDOW = 60_000
-export const RATE_LIMIT_MAX = 60
+export const RATE_LIMIT_MAX = 300
 
 // ── React Query ──
 export const QUERY_STALE_TIME = 120_000
