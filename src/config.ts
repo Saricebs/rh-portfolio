@@ -63,7 +63,9 @@ export const QUERY_GC_TIME = 300_000
 export const QUERY_MAX_RETRIES = 2
 
 // ── Revalidation (ISR) ──
-export const REVALIDATE_BLOCKSCOUT = 120
+// REVALIDATE_BLOCKSCOUT doubles as the stale-while-revalidate window: on a 429
+// the route serves the last good response for this long instead of erroring.
+export const REVALIDATE_BLOCKSCOUT = 300
 export const REVALIDATE_PRICES = 60
 export const REVALIDATE_TRENDING = 120
 

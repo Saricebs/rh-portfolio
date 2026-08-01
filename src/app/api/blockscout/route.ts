@@ -2,12 +2,32 @@ import { NextRequest, NextResponse } from 'next/server'
 import { BLOCKSCOUT_BASE, REVALIDATE_BLOCKSCOUT, FETCH_TIMEOUT } from '@/config'
 import { isAddress } from 'ethers'
 import { rateLimitResponse } from '@/lib/rateLimit'
-
 const ALLOWED_MODULES = new Set(['account'])
 const ALLOWED_ACTIONS = new Set(['txlist', 'tokentx', 'tokenlist'])
 const ALLOWED_SORT = new Set(['asc', 'desc'])
 const ALLOWED_PARAMS = new Set(['address', 'module', 'action', 'sort', 'limit'])
 const MAX_LIMIT = 100
+
+// Module-level response cache: on an upstream 429 we serve the last good body
+// for this URL instead of erroring. Per warm instance, same model as the rate
+// limiter — good enough to absorb Blockscout rate-limit bursts.
+interface CacheEntry { body: unknown; at: number }
+const responseCache = new Map<string, CacheEntry>()
+const CACHE_TTL = 5 * 60_000
+const MAX_CACHE_KEYS = 500
+
+function cacheKey(url: string): string { return url.replace(/&apikey=[^&]+/, '') }
+function getCached(url: string): unknown | null {
+  const key = cacheKey(url)
+  const entry = responseCache.get(key)
+  if (entry && Date.now() - entry.at < CACHE_TTL) return entry.body
+  if (entry) responseCache.delete(key)
+  return null
+}
+function setCached(url: string, body: unknown) {
+  if (responseCache.size > MAX_CACHE_KEYS) responseCache.clear()
+  responseCache.set(cacheKey(url), { body, at: Date.now() })
+}
 
 export async function GET(req: NextRequest) {
   // This route spends the deployment's BLOCKSCOUT_API_KEY on behalf of the
@@ -59,9 +79,19 @@ export async function GET(req: NextRequest) {
       next: { revalidate: REVALIDATE_BLOCKSCOUT },
     })
     if (!res.ok) {
+      // Upstream rate limited or down. Serve the last good response from the
+      // module cache (stale-while-revalidate) so the UI keeps showing data
+      // instead of a hard error.
+      const cached = getCached(url)
+      if (cached) {
+        return NextResponse.json(cached, {
+          headers: { 'Cache-Control': `public, max-age=0, s-maxage=30`, 'X-Blockscout-Stale': '1' },
+        })
+      }
       return NextResponse.json({ error: `Blockscout ${res.status}`, code: 'UPSTREAM_ERROR' }, { status: res.status })
     }
     const data = await res.json()
+    setCached(url, data)
     return NextResponse.json(data, {
       headers: { 'Cache-Control': `public, max-age=0, s-maxage=${REVALIDATE_BLOCKSCOUT}` },
     })

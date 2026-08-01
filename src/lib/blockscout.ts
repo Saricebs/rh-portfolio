@@ -6,7 +6,40 @@ import { fetchLpPositions, type LpPosition } from './lp'
 import { BlockscoutError } from './fetch'
 import { FALLBACK_TTL, QUERY_STALE_TIME, QUERY_GC_TIME, QUERY_MAX_RETRIES } from '@/config'
 
+// localStorage-backed fallback cache. The in-memory map is per page load; the
+// persistent copy means a wallet's activity survives reloads even while
+// Blockscout is rate limiting the whole day. Mirrors storage.ts's safe wrappers.
+const PERSIST_KEY = 'rh_blockscout_cache'
+const MAX_PERSIST_ENTRIES = 20
+
+function readPersist(): Record<string, { data: unknown; at: number }> {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = localStorage.getItem(PERSIST_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? parsed as Record<string, { data: unknown; at: number }> : {}
+  } catch { return {} }
+}
+
+function writePersist(map: Record<string, { data: unknown; at: number }>) {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(PERSIST_KEY, JSON.stringify(map))
+  } catch { /* quota exceeded — in-memory still works */ }
+}
+
 const fallbackCache = new Map<string, { data: unknown; at: number }>()
+
+// Seed the in-memory map from localStorage on first load.
+function seedCache() {
+  if (typeof window === 'undefined') return
+  const saved = readPersist()
+  for (const [k, v] of Object.entries(saved)) {
+    if (v && Date.now() - v.at < FALLBACK_TTL) fallbackCache.set(k, v)
+  }
+}
+seedCache()
 
 function getCached<T>(key: string): T | null {
   const entry = fallbackCache.get(key)
@@ -22,6 +55,15 @@ function setCache(key: string, data: unknown) {
     if (existing && Date.now() - existing.at < FALLBACK_TTL) return
   }
   fallbackCache.set(key, { data, at: Date.now() })
+  // Mirror to localStorage (trimmed to most recent entries).
+  if (typeof window !== 'undefined') {
+    const saved = readPersist()
+    saved[key] = { data, at: Date.now() }
+    const entries = Object.entries(saved).sort((a, b) => (b[1].at ?? 0) - (a[1].at ?? 0))
+    const trimmed: Record<string, { data: unknown; at: number }> = {}
+    for (const [k, v] of entries.slice(0, MAX_PERSIST_ENTRIES)) trimmed[k] = v
+    writePersist(trimmed)
+  }
 }
 
 function isRateLimitError(err: unknown): boolean {

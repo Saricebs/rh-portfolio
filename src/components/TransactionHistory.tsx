@@ -54,7 +54,7 @@ export default function TransactionHistory({ address, tokenSymbols }: Props) {
   const [typeFilter, setTypeFilter] = useState('All')
   const [tokenFilter, setTokenFilter] = useState('All')
 
-  const { data, isLoading, error } = useTxsQuery(address)
+  const { data, isLoading, error, refetch, isFetching } = useTxsQuery(address)
   const txs = useMemo(() => data?.data ?? [], [data])
   const warning = data?.warning ?? null
 
@@ -73,8 +73,15 @@ export default function TransactionHistory({ address, tokenSymbols }: Props) {
       <div className="text-zinc-500 text-xs uppercase tracking-wide mb-3">Activity</div>
 
       {warning && (
-        <div className="mb-3 px-3 py-2 bg-amber-900/30 border border-amber-700/50 rounded-lg text-xs text-amber-300">
-          {warning}
+        <div className="mb-3 px-3 py-2 bg-amber-900/30 border border-amber-700/50 rounded-lg text-xs text-amber-300 flex items-center justify-between gap-2">
+          <span>{warning}</span>
+          <button
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="shrink-0 px-2 py-1 bg-amber-800/50 hover:bg-amber-700/50 rounded-md text-amber-200 disabled:opacity-50 transition-colors"
+          >
+            {isFetching ? 'Retrying…' : 'Retry'}
+          </button>
         </div>
       )}
 
@@ -117,6 +124,15 @@ export default function TransactionHistory({ address, tokenSymbols }: Props) {
           </div>
           {!error && (
             <div className="text-xs text-zinc-600 mt-1">Transactions will appear once you use this wallet</div>
+          )}
+          {error && (
+            <button
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="mt-3 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-lg text-xs text-zinc-300 disabled:opacity-50 transition-colors"
+            >
+              {isFetching ? 'Retrying…' : 'Retry'}
+            </button>
           )}
         </div>
       ) : (
